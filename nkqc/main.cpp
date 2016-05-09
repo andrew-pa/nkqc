@@ -19,8 +19,8 @@ int main() {
 
 	nkqc::vm::codegen::context cx;
 
-	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("Object"), {}));
-	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("SmallInteger"), {
+	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("Object"), 0, {}));
+	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("SmallInteger"), 0, {
 		{ cx.add_string("+"), nkqc::vm::stmethod(1, nkqc::vm::codegen::assemble(cx, R"(ldlc 0;ldlc 1;math +)")) }
 	}));
 
@@ -29,9 +29,8 @@ int main() {
 	
 	//auto instr = nkqc::vm::codegen::assemble(cx, R"(push 0;crobj)");
 
-	nkqc::vm::interpreter::vmcore vc;
-	vc.strings = cx.strings;
-	vc.classes = cx.classes;
-	vc.small_integer_class_id = vc.find_class_by_name(vc.find_string("SmallInteger"));
+	nkqc::vm::image img{ cx.classes, cx.strings };
+
+	nkqc::vm::interpreter::vmcore vc(img);
 	vc.run(cx.code);
 }

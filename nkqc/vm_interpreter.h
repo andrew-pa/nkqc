@@ -45,7 +45,7 @@ namespace nkqc {
 
 				stack<value> stk;
 
-				stobject* small_integer_class;
+				stobject *small_integer_class_obj, *class_class_obj, *method_class_obj;
 
 				string_id_t find_string(const string& str) {
 					auto s = find(strings.begin(), strings.end(), str);

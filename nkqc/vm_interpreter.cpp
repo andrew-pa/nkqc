@@ -7,17 +7,16 @@ namespace nkqc {
 
 			vmcore::vmcore(const image& i) : strings(i.strings) {
 				objects.push_back(nullptr); //object 0 == nullptr == nil
-				stobject* class_class_object, *method_class_object;
 				class_id_t ci = 0;
 				for (const auto& c : i.classes) {
-					stobject* o = new stobject(class_class_object, 4);
+					stobject* o = new stobject(class_class_obj, 4);
 					o->instance_vars[0] = c.name;
 					o->instance_vars[1] = class_idx[c.super];
 					o->instance_vars[2] = c.num_inst_vars;
 					o->instance_vars[3] = arrays.size();
 					vector<value> mthd_map;
 					for (const auto& m : c.methods) {
-						stobject* om = new stobject(method_class_object, 3);
+						stobject* om = new stobject(method_class_obj, 3);
 						om->instance_vars[0] = m.first;
 						om->instance_vars[1] = m.second.arg_count;
 						om->instance_vars[2] = code_chunks.size();
@@ -59,16 +58,17 @@ namespace nkqc {
 							auto c = classes[o->cls];
 							m = &c.methods[x];
 						}*/
-						stobject* mo;
+						stobject* class_of_recv = nullptr;
 						if (!vo.is_object) {
-							mo = small_integer_class;
+							class_of_recv = small_integer_class_obj;
 						} else {
-							auto co = vo.object()->cls;
-							for (const auto& mm : arrays[co->instance_vars[3].integer()]) {
-								if(mm.object()->instance_vars[0] == x)
-							}
+							class_of_recv = vo.object()->cls;
+
 						}
-						
+						stobject* mo = nullptr;
+						for (auto& mm : arrays[class_of_recv->instance_vars[3].integer()]) {
+							if (mm.object()->instance_vars[0].integer() == x) mo = mm.object();
+						}
 						for (int i = 0; i < mo->instance_vars[1].integer(); ++i) {
 							nilc[i + 1] = stk.top(); stk.pop();
 						}
