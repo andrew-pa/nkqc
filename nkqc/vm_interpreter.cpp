@@ -8,22 +8,26 @@ namespace nkqc {
 			vmcore::vmcore(const image& i) : strings(i.strings) {
 				objects.push_back(nullptr); //object 0 == nullptr == nil
 				class_id_t ci = 0;
+				//TODO: find class_class_obj/method_class_obj/small_int_class_obj
 				for (const auto& c : i.classes) {
 					stobject* o = new stobject(class_class_obj, 4);
 					o->instance_vars[0] = c.name;
 					o->instance_vars[1] = class_idx[c.super];
 					o->instance_vars[2] = c.num_inst_vars;
-					o->instance_vars[3] = arrays.size();
-					vector<value> mthd_map;
-					for (const auto& m : c.methods) {
-						stobject* om = new stobject(method_class_obj, 3);
-						om->instance_vars[0] = m.first;
-						om->instance_vars[1] = m.second.arg_count;
-						om->instance_vars[2] = code_chunks.size();
-						code_chunks.push_back(m.second.code);
-						mthd_map.push_back(om);
+					if (c.methods.size() > 0) {
+						o->instance_vars[3] = arrays.size();
+						vector<value> mthd_map;
+						for (const auto& m : c.methods) {
+							stobject* om = new stobject(method_class_obj, 3);
+							om->instance_vars[0] = m.first;
+							om->instance_vars[1] = m.second.arg_count;
+							om->instance_vars[2] = code_chunks.size();
+							code_chunks.push_back(m.second.code);
+							mthd_map.push_back(om);
+						}
+						arrays.push_back(mthd_map);
 					}
-					arrays.push_back(mthd_map);
+					else o->instance_vars[3] = value((uint32_t)0);
 					class_idx[ci++] = o;
 				}
 			}
@@ -49,15 +53,6 @@ namespace nkqc {
 					case opcode::send_message: {
 						auto vo = stk.top(); stk.pop();
 						map<uint8_t, value> nilc = { {0,vo} };
-						/*stmethod* m = nullptr;
-						if (!vo.is_object) {
-							m = &classes[small_integer_class_id].methods[x];
-						}
-						else {
-							auto o = vo.object();
-							auto c = classes[o->cls];
-							m = &c.methods[x];
-						}*/
 						stobject* class_of_recv = nullptr;
 						if (!vo.is_object) {
 							class_of_recv = small_integer_class_obj;
@@ -66,6 +61,7 @@ namespace nkqc {
 
 						}
 						stobject* mo = nullptr;
+						//TODO: check superclass if don't find sel in this class
 						for (auto& mm : arrays[class_of_recv->instance_vars[3].integer()]) {
 							if (mm.object()->instance_vars[0].integer() == x) mo = mm.object();
 						}

@@ -6,6 +6,14 @@ using namespace std;
 #include "vm_codegen.h"
 #include "vm_interpreter.h"
 
+//TODO: cmake build system
+//TODO: finalize class/method defn syntax, file syntax
+//TODO: make compiler frontend
+//		make it so that it has a instant interp mode
+//TODO: make VM frontend
+//TODO: documention
+//TODO: std library
+
 int main() {
 	/*nkqc::parser::expr_parser xp;
 	auto res = xp.parse(

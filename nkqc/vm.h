@@ -15,6 +15,8 @@ namespace nkqc {
 				IDs of all kinds are SmallIntegers
 		*/
 
+		//TODO: 64bits; everywhere
+
 		enum class opcode : uint8_t {
 			nop,
 			math,
@@ -26,9 +28,13 @@ namespace nkqc {
 			copy_local,
 			create_object,
 			send_message,
+			//TODO: branching
+			//TODO: instance vars
 		};
 
 		enum class math_opcode : uint16_t {
+			//TODO: other operations
+			//TODO: decide wither this really needs 16bits
 			iadd, isub, imul, idiv
 		};
 
@@ -92,7 +98,7 @@ namespace nkqc {
 		
 		typedef int32_t string_id_t;
 		typedef int32_t method_id_t;
-		typedef int32_t class_id_t;
+		typedef int32_t class_id_t; //TODO: make class lookup based on strings like Java
 		
 		struct stmethod {
 			size_t arg_count;
@@ -110,6 +116,9 @@ namespace nkqc {
 				super(sup), name(nm), num_inst_vars(niv), methods(mth) {}
 		};
 
+		//TODO: image is a misnomer, should be something more like class file or something
+		//		perhaps imprint or class_image or something
+		//		image should be a thing, but it should be VM state like objects and such
 		struct image {
 			vector<stclass> classes;
 			vector<string> strings;

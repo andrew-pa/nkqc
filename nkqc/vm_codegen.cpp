@@ -4,13 +4,15 @@
 namespace nkqc {
 	namespace vm {
 		namespace codegen {
+			//TODO: reduce redunant expr_emitter::visit function headers
+
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::id_expr> xpr) {
 				auto lci = lc.tb.find(xpr->v);
 				if (lci != lc.tb.end()) {
 					cx.code.push_back(instruction(opcode::load_local, lci->second));
 				}
 				else {
-					//could be a instance var or class name
+					//TODO: could be a instance var or class name
 				}
 			}
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::string_expr> xpr) {
@@ -24,13 +26,13 @@ namespace nkqc {
 				} else {/*float, create a object(Float)*/}
 			}
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::block_expr> xpr) {
-				//create Block object
+				//TODO: impl Block codegen
 			}
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::symbol_expr> xpr) {
-				//create Symbol object
+				//TODO: impl Symbol literal codegen
 			}
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::array_expr> xpr) {
-				//create Array object
+				//TODO: impl Array literal codegen
 			}
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::seq_expr> xpr) {
 				visit(cx, lc, xpr->first);
@@ -59,7 +61,7 @@ namespace nkqc {
 					(uint32_t)cx.add_string(xpr->msgname)));
 			}
 			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::cascade_msgsnd> xpr) {
-				
+				//TODO: implement cascading messages
 			}
 
 			void expr_emitter::visit(context& cx, local_context& lc, shared_ptr<ast::expr> xpr) {

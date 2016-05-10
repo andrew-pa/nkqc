@@ -6,7 +6,6 @@ using namespace std;
 
 namespace nkqc{
 	namespace ast {
-		//TODO: Block expr
 		/*
 			<expr> := [id] | <literal> | <msgsnd> | '(' <expr> ')' | <expr> '.' <expr> | <block-expr>
 						| <assignment-expr> | <return-expr>
