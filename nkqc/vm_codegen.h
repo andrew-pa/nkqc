@@ -21,16 +21,17 @@ namespace nkqc {
 					else return distance(strings.begin(), si);
 				}
 			};
+			//TODO: sort out locals in message sends
 			struct local_context {
 				map<string, uint8_t> tb;
-				map<string, class_id_t> local_types;
+				map<string, string_id_t> local_types;
 				stack<uint8_t> unused;
 				uint8_t next;
-				local_context(class_id_t self_type) : next(0) {
+				local_context(string_id_t self_type) : next(0) {
 					alloc_local("self", self_type); //ensure that self is always local#0
 				}
 
-				uint8_t alloc_local(const string& name, class_id_t type) {
+				uint8_t alloc_local(const string& name, string_id_t type) {
 					uint8_t v = next;
 					if (unused.size() > 0 && tb.find(name) == tb.end()) {
 						v = unused.top();

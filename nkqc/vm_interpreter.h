@@ -37,7 +37,7 @@ namespace nkqc {
 
 			struct vmcore {
 				//vector<stclass> classes;
-				map<class_id_t, stobject*> class_idx;
+				map<string_id_t, stobject*> class_idx; //class name => class object
 				vector<stobject*> objects;
 				vector<string> strings;
 				vector<vector<value>> arrays;
@@ -53,12 +53,12 @@ namespace nkqc {
 					else return -1;
 				}
 
-				class_id_t find_class_by_name(string_id_t strid) {
+				/*class_id_t find_class_by_name(string_id_t strid) {
 					//auto s = find_if(classes.begin(), classes.end(), [&](auto c) {return c.name == strid;});
 					//if (s != classes.end()) return distance(classes.begin(), s);
 					//else 
 					return -1;
-				}
+				}*/
 
 				vmcore() {}
 

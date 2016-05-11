@@ -7,11 +7,16 @@ namespace nkqc {
 
 			vmcore::vmcore(const image& i) : strings(i.strings) {
 				objects.push_back(nullptr); //object 0 == nullptr == nil
-				class_id_t ci = 0;
-				//TODO: find class_class_obj/method_class_obj/small_int_class_obj
+				auto class_str = find_string("Class"), method_str = find_string("Method"), sint_str = find_string("SmallInteger");
+				class_class_obj = new stobject(nullptr, 4);
+				method_class_obj = new stobject(class_class_obj, 4);
 				for (const auto& c : i.classes) {
-					stobject* o = new stobject(class_class_obj, 4);
+					stobject* o = nullptr;
+					if (c.name == class_str) o = class_class_obj;
+					else if (c.name == method_str) o = method_class_obj;
+					else o = new stobject(class_class_obj, 4);
 					o->instance_vars[0] = c.name;
+					if (c.name == sint_str) small_integer_class_obj = o;
 					o->instance_vars[1] = class_idx[c.super];
 					o->instance_vars[2] = c.num_inst_vars;
 					if (c.methods.size() > 0) {
@@ -28,7 +33,8 @@ namespace nkqc {
 						arrays.push_back(mthd_map);
 					}
 					else o->instance_vars[3] = value((uint32_t)0);
-					class_idx[ci++] = o;
+					class_idx[c.name] = o;
+					objects.push_back(o);
 				}
 			}
 
@@ -45,7 +51,7 @@ namespace nkqc {
 					case opcode::copy_local: locals[x] = stk.top(); break;
 					case opcode::move_local: locals[x] = stk.top(); stk.pop(); break;
 					case opcode::create_object: {
-						auto cobj = stk.top().object(); stk.pop();
+						auto cobj = class_idx[stk.top().integer()]; stk.pop();
 						auto o = new stobject(cobj, cobj->instance_vars[2].integer());
 						objects.push_back(o);
 						stk.push(value(o));
@@ -61,9 +67,14 @@ namespace nkqc {
 
 						}
 						stobject* mo = nullptr;
-						//TODO: check superclass if don't find sel in this class
-						for (auto& mm : arrays[class_of_recv->instance_vars[3].integer()]) {
-							if (mm.object()->instance_vars[0].integer() == x) mo = mm.object();
+						while (class_of_recv != nullptr) {
+							for (auto& mm : arrays[class_of_recv->instance_vars[3].integer()]) {
+								if (mm.object()->instance_vars[0].integer() == x) {
+									mo = mm.object();
+									break;
+								}
+							}
+							class_of_recv = class_of_recv->instance_vars[1].object(); //get super class
 						}
 						for (int i = 0; i < mo->instance_vars[1].integer(); ++i) {
 							nilc[i + 1] = stk.top(); stk.pop();

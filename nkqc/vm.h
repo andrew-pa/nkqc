@@ -16,18 +16,19 @@ namespace nkqc {
 		*/
 
 		//TODO: 64bits; everywhere
+		//TODO: document opcodes
 
 		enum class opcode : uint8_t {
-			nop,
-			math,
-			push,
-			push8,
-			discard,
-			load_local,
-			move_local,
-			copy_local,
-			create_object,
-			send_message,
+			nop,			//nop:				does nothing
+			math,			//math:				do math operations (+,-,*,/)
+			push,			//push:				push a 32bit value on to the stack
+			push8,			//push8:			push a 8bit value on to the stack
+			discard,		//discard:			pop a value off of the stack, discarding it
+			load_local,		//load_local:		load local at index and push its value on to the stack
+			move_local,		//move_local:		store the value on top of the stack to a local, then pop that value off of the stack
+			copy_local,		//copy_local:		store the value on top of the stack to a local, but don't pop it off
+			create_object,	//create_object:	create a object of the class named on top of the stack by its string(id) name
+			send_message,	//send_message:		send a object a message
 			//TODO: branching
 			//TODO: instance vars
 		};
@@ -98,7 +99,7 @@ namespace nkqc {
 		
 		typedef int32_t string_id_t;
 		typedef int32_t method_id_t;
-		typedef int32_t class_id_t; //TODO: make class lookup based on strings like Java
+		//typedef int32_t class_id_t; //TODO: make class lookup based on strings like Java
 		
 		struct stmethod {
 			size_t arg_count;
@@ -108,11 +109,11 @@ namespace nkqc {
 		};
 		struct stclass {
 			string_id_t name;
-			class_id_t super;
+			string_id_t super;
 			size_t num_inst_vars;
 			map<string_id_t, stmethod> methods;
 			stclass() {}
-			stclass(class_id_t sup, string_id_t nm, size_t niv, map<string_id_t, stmethod> mth) :
+			stclass(string_id_t sup, string_id_t nm, size_t niv, map<string_id_t, stmethod> mth) :
 				super(sup), name(nm), num_inst_vars(niv), methods(mth) {}
 		};
 

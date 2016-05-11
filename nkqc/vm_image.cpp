@@ -14,7 +14,7 @@ namespace nkqc {
 			uint8_t* dp = s + sizeof(header);
 			for (size_t i = 0; i < hp->num_classes; ++i) {
 				string_id_t name	= *((string_id_t*)dp);	dp += sizeof(string_id_t);
-				class_id_t super	= *((class_id_t*)dp);	dp += sizeof(class_id_t);
+				string_id_t super	= *((string_id_t*)dp);	dp += sizeof(string_id_t);
 				size_t num_inst_vars= *((size_t*)dp);		dp += sizeof(size_t);
 				size_t num_methods	= *((size_t*)dp);		dp += sizeof(size_t);
 				map<string_id_t, stmethod> mthds;
@@ -36,7 +36,7 @@ namespace nkqc {
 			size_t total_size = sizeof(header); //size in bytes
 			for (const auto& c : classes) {
 				//Super ID, Name ID, # of methods
-				total_size += sizeof(class_id_t) + sizeof(string_id_t) + sizeof(size_t);
+				total_size += sizeof(string_id_t) * 2 + sizeof(size_t);
 				for (const auto& m : c.methods) {
 					total_size += sizeof(string_id_t) + sizeof(size_t);
 					for (const auto& i : m.second.code) total_size += i.size();

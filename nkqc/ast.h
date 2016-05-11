@@ -21,6 +21,8 @@ namespace nkqc{
 			<return-expr> := '^' <expr>
 		*/
 
+		//TODO: assignement_expr
+
 		struct expr {
 			virtual void print(ostream& os) const = 0;
 			virtual ~expr() {}

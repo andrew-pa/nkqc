@@ -27,8 +27,10 @@ int main() {
 
 	nkqc::vm::codegen::context cx;
 
+	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("Class"), 0, {}));
 	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("Object"), 0, {}));
-	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("SmallInteger"), 0, {
+	cx.classes.push_back(nkqc::vm::stclass(cx.add_string("Object"), cx.add_string("Method"), 0, {}));
+	cx.classes.push_back(nkqc::vm::stclass(cx.add_string("Object"), cx.add_string("SmallInteger"), 0, {
 		{ cx.add_string("+"), nkqc::vm::stmethod(1, nkqc::vm::codegen::assemble(cx, R"(ldlc 0;ldlc 1;math +)")) }
 	}));
 
