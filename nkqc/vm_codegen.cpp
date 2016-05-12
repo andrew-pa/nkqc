@@ -5,68 +5,79 @@ namespace nkqc {
 	namespace vm {
 		namespace codegen {
 			//TODO: reduce redunant expr_emitter::visit function headers
-
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::id_expr> xpr) {
-				auto lci = lc.tb.find(xpr->v);
-				if (lci != lc.tb.end()) {
-					cx.code.push_back(instruction(opcode::load_local, lci->second));
+#define visitf(T) void expr_emitter::visit(const ast:: T& xpr)
+			visitf(id_expr) {
+				auto lci = lc->tb.find(xpr.v);
+				if (lci != lc->tb.end()) {
+					cx->code.push_back(instruction(opcode::load_local, lci->second));
 				}
 				else {
+					
 					//TODO: could be a instance var or class name
 				}
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::string_expr> xpr) {
-				cx.code.push_back(instruction(opcode::push, (uint32_t)cx.add_string(xpr->v)));
+			visitf(string_expr) {
+				cx->code.push_back(instruction(opcode::push, (uint32_t)cx->add_string(xpr.v)));
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::number_expr> xpr) {
-				if (xpr->type == 'i') {
-					if (abs(xpr->iv) < INT_MAX) {
-						cx.code.push_back(instruction(opcode::push, (uint32_t)xpr->iv));
+			visitf(number_expr) {
+				if (xpr.type == 'i') {
+					if (abs(xpr.iv) < INT_MAX) {
+						cx->code.push_back(instruction(opcode::push, (uint32_t)xpr.iv));
 					} else {/*64bit number, create a object (Integer64)*/}
 				} else {/*float, create a object(Float)*/}
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::block_expr> xpr) {
+			visitf(block_expr) {
 				//TODO: impl Block codegen
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::symbol_expr> xpr) {
+			visitf(symbol_expr) {
 				//TODO: impl Symbol literal codegen
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::array_expr> xpr) {
+			visitf(char_expr) {
+				//TODO: impl Symbol literal codegen
+			}
+			visitf(array_expr) {
 				//TODO: impl Array literal codegen
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::seq_expr> xpr) {
-				visit(cx, lc, xpr->first);
-				visit(cx, lc, xpr->second);
+			visitf(seq_expr) {
+				xpr.first->visit(this);
+				xpr.second->visit(this);
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::return_expr> xpr) {
-				visit(cx, lc, xpr->val);
+			visitf(return_expr) {
+				xpr.val->visit(this);
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::unary_msgsnd> xpr) {
-				visit(cx, lc, xpr->rcv);
-				cx.code.push_back(instruction(opcode::send_message, 
-					(uint32_t)cx.add_string(xpr->msgname)));
+			visitf(unary_msgsnd) {
+				xpr.rcv->visit(this);
+				cx->code.push_back(instruction(opcode::send_message, 
+					(uint32_t)cx->add_string(xpr.msgname)));
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::binary_msgsnd> xpr) {
-				visit(cx, lc, xpr->rhs);
-				visit(cx, lc, xpr->rcv);
-				cx.code.push_back(instruction(opcode::send_message,
-					(uint32_t)cx.add_string(xpr->op)));
+			visitf(binary_msgsnd) {
+				xpr.rhs->visit(this);
+				xpr.rcv->visit(this);
+				cx->code.push_back(instruction(opcode::send_message,
+					(uint32_t)cx->add_string(xpr.op)));
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::keyword_msgsnd> xpr) {
-				for (int i = xpr->args.size() - 1; i >= 0; i--) {
-					visit(cx, lc, xpr->args[i]);
+			visitf(keyword_msgsnd) {
+				for (int i = xpr.args.size() - 1; i >= 0; i--) {
+					xpr.args[i]->visit(this);
 				}
-				visit(cx, lc, xpr->rcv);
-				cx.code.push_back(instruction(opcode::send_message,
-					(uint32_t)cx.add_string(xpr->msgname)));
+				xpr.rcv->visit(this);
+				cx->code.push_back(instruction(opcode::send_message,
+					(uint32_t)cx->add_string(xpr.msgname)));
 			}
-			void expr_emitter::visit(context& cx, local_context& lc,shared_ptr<ast::cascade_msgsnd> xpr) {
+			visitf(cascade_msgsnd) {
 				//TODO: implement cascading messages
 			}
+			visitf(assignment_expr) {
+				auto lci = lc->alloc_local(xpr.name, 0); //TODO: why does this need to know the type of locals?
+				xpr.val->visit(this);
+				cx->code.push_back(instruction(opcode::move_local, lci));
+			}
 
-			void expr_emitter::visit(context& cx, local_context& lc, shared_ptr<ast::expr> xpr) {
-#define visit_test(T) { auto p = dynamic_pointer_cast<ast:: T>(xpr); if(p) return visit(cx, lc, p); }
-				for_all_ast(visit_test)
+			void expr_emitter::visit(context& _cx, local_context& _lc, shared_ptr<ast::expr> xpr) {
+				cx = &_cx; lc = &_lc;
+				xpr->visit(this);
+//#define visit_test(T) { auto p = dynamic_pointer_cast<ast:: T>(xpr); if(p) return visit(cx, lc, p); }
+//				for_all_ast(visit_test)
 			}
 
 			const char* ws = " \t\n\r\f\v";

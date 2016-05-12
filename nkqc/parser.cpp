@@ -4,6 +4,7 @@ namespace nkqc {
 	using namespace ast;
 
 	namespace parser {
+		//TODO: fix this so that it is std compliant
 		shared_ptr<ast::number_expr> expr_parser::parse_number()
 		{
 			string numv;
@@ -16,6 +17,7 @@ namespace nkqc {
 			else
 				return make_shared<number_expr>(atoll(numv.c_str()));
 		}
+		
 		string expr_parser::parse_string_lit() {
 			string v;
 			while (more_char() && curr_char() != '\'') {
@@ -63,7 +65,7 @@ namespace nkqc {
 			return ms;
 		}
 
-		shared_ptr<expr> expr_parser::_parse(bool allow_compound, bool allow_keyword_msgsnd) {
+		shared_ptr<expr> expr_parser::_parse(bool allow_compound, bool allow_keyword_msgsnd, bool allow_any_msgsnd) {
 			next_ws();
 			shared_ptr<expr> current_expr = nullptr;
 			if(curr_char() == '(') {
@@ -106,8 +108,9 @@ namespace nkqc {
 				next_char();
 				current_expr = make_shared<string_expr>(parse_string_lit());
 			}
-			else if (curr_char() == '<') {
-
+			else if (curr_char() == '$') {
+				next_char();
+				current_expr = make_shared<char_expr>(get_token());
 			}
 			else if (curr_char() == '#') {
 				next_char();
@@ -119,7 +122,7 @@ namespace nkqc {
 					vector<shared_ptr<expr>> xs;
 					while (curr_char() != ')') {
 						next_ws();
-						xs.push_back(_parse(true, true));
+						xs.push_back(_parse(false, false, false));
 						next_ws();
 					}
 					assert(curr_char() == ')');
@@ -132,11 +135,17 @@ namespace nkqc {
 			}
 			// -- id --
 			else {
-				current_expr = make_shared<id_expr>(get_token());
+				auto idx = make_shared<id_expr>(get_token());
+				current_expr = idx;
+				next_ws();
+				if (allow_compound && curr_char() == ':' && peek_char() == '=') {
+					next_char(); next_char();
+					current_expr = make_shared<assignment_expr>(idx->v, _parse(false, true));
+				}
 			}
 			next_ws();
 			// -- msgsnd --
-			while (more_token() || is_binary_op()) {
+			while (allow_any_msgsnd && more_token() || is_binary_op()) {
 				current_expr = parse_msgsnd(current_expr,allow_keyword_msgsnd);
 			}
 			// -- compound --

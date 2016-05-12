@@ -4,6 +4,22 @@
 #include <vector>
 using namespace std;
 
+#define for_all_ast(X) \
+	X(id_expr)\
+	X(string_expr)\
+	X(number_expr)\
+	X(block_expr)\
+	X(symbol_expr)\
+	X(char_expr)\
+	X(array_expr)\
+	X(seq_expr)\
+	X(return_expr)\
+	X(unary_msgsnd)\
+	X(binary_msgsnd)\
+	X(keyword_msgsnd)\
+	X(cascade_msgsnd)\
+	X(assignment_expr)
+
 namespace nkqc{
 	namespace ast {
 		/*
@@ -21,10 +37,19 @@ namespace nkqc{
 			<return-expr> := '^' <expr>
 		*/
 
-		//TODO: assignement_expr
+#define prdt(T) struct T;
+		for_all_ast(prdt)
+#undef prdt
+
+		struct expr_visiter {
+#define visit_dcl(T) virtual void visit(const T& x) = 0;
+			for_all_ast(visit_dcl)
+#undef visit_dcl
+		};
 
 		struct expr {
 			virtual void print(ostream& os) const = 0;
+			virtual void visit(expr_visiter* V) const = 0;
 			virtual ~expr() {}
 		};
 
@@ -33,18 +58,31 @@ namespace nkqc{
 			id_expr(const string& V) : v(V) {}
 
 			void print(ostream& os) const override { os << v; }
+			
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct string_expr : public expr { 
 			string v;
 			string_expr(const string& V) : v(V) {}
 			void print(ostream& os) const override { os << "'" << v << "'"; }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct tag_expr : public expr {
 			string v;
 			tag_expr(const string& V) : v(V) {}
 			void print(ostream& os) const override { os << "<" << v << ">"; }
+			//void visit(expr_visiter* V) const override { V->visit(*this); }
+		};
+
+		struct char_expr : public expr {
+			string chr;
+			char_expr(const string& ch) : chr(ch) {}
+			void print(ostream& os) const override {
+				os << "$" << chr;
+			}
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct number_expr : public expr {
@@ -53,6 +91,7 @@ namespace nkqc{
 			number_expr(int64_t i) : iv(i), type('i') {}
 			number_expr(double f) : fv(f), type('f') {}
 			void print(ostream& os) const override { os << (type == 'i' ? iv : fv); }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct block_expr : public expr {
@@ -66,12 +105,14 @@ namespace nkqc{
 				body->print(os);
 				os << " ]";
 			}
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 		
 		struct symbol_expr : public expr { 
 			string v; //missing leading #
 			symbol_expr(const string& V) : v(V) {}
 			void print(ostream& os) const override { os << "#" << v; }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 		struct array_expr : public expr {
 			vector<shared_ptr<expr>> vs;
@@ -84,12 +125,14 @@ namespace nkqc{
 				}
 				os << ")";
 			}
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct seq_expr : public expr {
 			shared_ptr<expr> first, second;
 			seq_expr(shared_ptr<expr> f, shared_ptr<expr> s) : first(f), second(s) {}
-			void print(ostream& os) const override { first->print(os); os << "."; second->print(os); }
+			void print(ostream& os) const override { first->print(os); os << "." << endl; second->print(os); }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct return_expr : public expr {
@@ -97,6 +140,7 @@ namespace nkqc{
 
 			return_expr(shared_ptr<expr> v) : val(v) {}
 			void print(ostream& os) const override { os << "^ "; val->print(os); }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 		struct msgsnd_expr : public expr {
@@ -107,6 +151,7 @@ namespace nkqc{
 			string msgname;
 			unary_msgsnd(shared_ptr<expr> rcv_, const string& mn) : msgsnd_expr(rcv_), msgname(mn) {}
 			void print(ostream& os) const override { rcv->print(os); os << " " << msgname; }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 		/*enum class binary_operator { 
 			add,			// + 
@@ -135,6 +180,7 @@ namespace nkqc{
 			shared_ptr<expr> rhs;
 			binary_msgsnd(shared_ptr<expr> rcv_, const string& op_, shared_ptr<expr> rhs_) : msgsnd_expr(rcv_), op(op_), rhs(rhs_) {}
 			void print(ostream& os) const override { rcv->print(os); os << " " << op << " "; rhs->print(os); }
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 		struct keyword_msgsnd : public msgsnd_expr {
 			string msgname; //concat, [[a: 1 b: 2 c: 3]] ---> 'a:b:c:' with args={1,2,3}
@@ -145,6 +191,7 @@ namespace nkqc{
 				os << " " << msgname << " ";
 				for (auto a : args) { a->print(os); os << " "; }
 			}
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 		struct cascade_msgsnd : public msgsnd_expr {
 			shared_ptr<msgsnd_expr> first;
@@ -155,21 +202,19 @@ namespace nkqc{
 				os << ";";
 				second->print(os);
 			}
+			void visit(expr_visiter* V) const override { V->visit(*this); }
+		};
+		
+		struct assignment_expr : public expr {
+			string name;
+			shared_ptr<expr> val;
+			assignment_expr(const string& n, shared_ptr<expr> v) : name(n), val(v) {}
+			void print(ostream& os) const override {
+				os << name << " := ";
+				val->print(os);
+			}
+			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 
 	}
 }
-
-#define for_all_ast(X) \
-	X(id_expr)\
-	X(string_expr)\
-	X(number_expr)\
-	X(block_expr)\
-	X(symbol_expr)\
-	X(array_expr)\
-	X(seq_expr)\
-	X(return_expr)\
-	X(unary_msgsnd)\
-	X(binary_msgsnd)\
-	X(keyword_msgsnd)\
-	X(cascade_msgsnd)

@@ -15,16 +15,16 @@ using namespace std;
 //TODO: std library
 
 int main() {
-	/*nkqc::parser::expr_parser xp;
+	/*{
+		nkqc::parser::expr_parser xp;
 	auto res = xp.parse(
-	R"(
+		R"(
 		true & false not & (nil isNil) ifFalse: [self halt].
 		y := self size + super size.
 		#($a #a "a" 1 1.0) do: [ :each | Transcript show: (each class name); show: ' '].
 		^ x < y
 	)");
-	res->print(cout);*/
-
+	res->print(cout);}*/
 	nkqc::vm::codegen::context cx;
 
 	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("Class"), 0, {}));
