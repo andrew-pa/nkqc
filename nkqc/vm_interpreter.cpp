@@ -7,32 +7,52 @@ namespace nkqc {
 
 			vmcore::vmcore(const image& i) : strings(i.strings) {
 				objects.push_back(nullptr); //object 0 == nullptr == nil
-				auto class_str = find_string("Class"), method_str = find_string("Method"), sint_str = find_string("SmallInteger");
+				auto	class_str = find_string("Class"),
+						method_str = find_string("Method"),
+						sint_str = find_string("SmallInteger"),
+						array_str = find_string("Array");
 				class_class_obj = new stobject(nullptr, 4);
 				method_class_obj = new stobject(class_class_obj, 4);
+				array_class_obj = new stobject(class_class_obj, 4);
 				for (const auto& c : i.classes) {
 					stobject* o = nullptr;
 					if (c.name == class_str) o = class_class_obj;
 					else if (c.name == method_str) o = method_class_obj;
+					else if (c.name == array_str) o = array_class_obj;
 					else o = new stobject(class_class_obj, 4);
 					o->instance_vars[0] = c.name;
 					if (c.name == sint_str) small_integer_class_obj = o;
 					o->instance_vars[1] = class_idx[c.super];
-					o->instance_vars[2] = c.num_inst_vars;
+					if (c.inst_vars.size() > 0) {
+						auto ivaro = new stobject(array_class_obj, 1 + c.inst_vars.size());
+						objects.push_back(ivaro);
+						o->instance_vars[2] = value(ivaro);
+						ivaro->instance_vars[0] = c.inst_vars.size();
+						size_t i = 1;
+						for (const auto& v : c.inst_vars) {
+							ivaro->instance_vars[i++] = value(v);
+						}
+					}
+					else o->instance_vars[2] = value(nullptr);
+
 					if (c.methods.size() > 0) {
-						o->instance_vars[3] = arrays.size();
-						vector<value> mthd_map;
+						auto maro = new stobject(array_class_obj, 1 + c.methods.size());
+						objects.push_back(maro);
+						o->instance_vars[3] = value(maro);
+						maro->instance_vars[0] = c.methods.size();
+						size_t i = 1;
 						for (const auto& m : c.methods) {
 							stobject* om = new stobject(method_class_obj, 3);
 							om->instance_vars[0] = m.first;
 							om->instance_vars[1] = m.second.arg_count;
 							om->instance_vars[2] = code_chunks.size();
 							code_chunks.push_back(m.second.code);
-							mthd_map.push_back(om);
+							objects.push_back(om);
+							maro->instance_vars[i] = value(om);
 						}
-						arrays.push_back(mthd_map);
 					}
-					else o->instance_vars[3] = value((uint32_t)0);
+					else o->instance_vars[3] = value(nullptr);
+
 					class_idx[c.name] = o;
 					objects.push_back(o);
 				}
@@ -64,13 +84,13 @@ namespace nkqc {
 							class_of_recv = small_integer_class_obj;
 						} else {
 							class_of_recv = vo.object()->cls;
-
 						}
 						stobject* mo = nullptr;
 						while (class_of_recv != nullptr) {
-							for (auto& mm : arrays[class_of_recv->instance_vars[3].integer()]) {
-								if (mm.object()->instance_vars[0].integer() == x) {
-									mo = mm.object();
+							auto mar = class_of_recv->instance_vars[3].object()->instance_vars;
+							for (size_t i = 1; i < mar[0].integer(); ++i) {
+								if (mar[i].object()->instance_vars[0].integer() == x) {
+									mo = mar[i].object();
 									break;
 								}
 							}

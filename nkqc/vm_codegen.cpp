@@ -4,16 +4,17 @@
 namespace nkqc {
 	namespace vm {
 		namespace codegen {
-			//TODO: reduce redunant expr_emitter::visit function headers
+			
 #define visitf(T) void expr_emitter::visit(const ast:: T& xpr)
+
 			visitf(id_expr) {
 				auto lci = lc->tb.find(xpr.v);
 				if (lci != lc->tb.end()) {
 					cx->code.push_back(instruction(opcode::load_local, lci->second));
 				}
 				else {
-					
 					//TODO: could be a instance var or class name
+					
 				}
 			}
 			visitf(string_expr) {

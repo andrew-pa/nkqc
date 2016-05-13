@@ -111,11 +111,11 @@ namespace nkqc {
 		struct stclass {
 			string_id_t name;
 			string_id_t super;
-			size_t num_inst_vars;
+			vector<string_id_t> inst_vars;
 			map<string_id_t, stmethod> methods;
 			stclass() {}
-			stclass(string_id_t sup, string_id_t nm, size_t niv, map<string_id_t, stmethod> mth) :
-				super(sup), name(nm), num_inst_vars(niv), methods(mth) {}
+			stclass(string_id_t sup, string_id_t nm, vector<string_id_t> iv, map<string_id_t, stmethod> mth) :
+				super(sup), name(nm), inst_vars(iv), methods(mth) {}
 		};
 
 		//TODO: image is a misnomer, should be something more like class file or something

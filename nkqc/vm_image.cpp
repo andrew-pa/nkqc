@@ -16,6 +16,11 @@ namespace nkqc {
 				string_id_t name	= *((string_id_t*)dp);	dp += sizeof(string_id_t);
 				string_id_t super	= *((string_id_t*)dp);	dp += sizeof(string_id_t);
 				size_t num_inst_vars= *((size_t*)dp);		dp += sizeof(size_t);
+				vector<string_id_t> iv;
+				for (size_t i = 0; i < num_inst_vars; ++i) {
+					iv.push_back(*(string_id_t*)dp);
+					dp += sizeof(string_id_t);
+				}
 				size_t num_methods	= *((size_t*)dp);		dp += sizeof(size_t);
 				map<string_id_t, stmethod> mthds;
 				for (size_t mi = 0; mi < num_methods; ++mi) {
@@ -28,7 +33,7 @@ namespace nkqc {
 					}
 					mthds[sid] = stmethod(arg_count, i);
 				}
-				classes.push_back(stclass(super, name, num_inst_vars, mthds));
+				classes.push_back(stclass(super, name, iv, mthds));
 			}
 		}
 
@@ -54,7 +59,10 @@ namespace nkqc {
 			for (const auto& c : classes) {
 				store(dp, c.name);
 				store(dp, c.super);
-				store(dp, c.num_inst_vars);
+				store(dp, c.inst_vars.size());
+				for (auto iv : c.inst_vars) {
+					store(dp, iv);
+				}
 				store(dp, c.methods.size())
 				for (const auto& m : c.methods) {
 					store(dp, m.first);
