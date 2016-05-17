@@ -8,7 +8,6 @@ namespace nkqc {
 	namespace vm {
 		namespace codegen {
 			struct context {
-				vector<instruction> code;
 				vector<string> strings;
 				vector<stclass> classes;
 
@@ -20,9 +19,18 @@ namespace nkqc {
 					}
 					else return distance(strings.begin(), si);
 				}
+
+				string_id_t find_string(const string& s) {
+					auto si = find(strings.begin(), strings.end(), s);
+					if (si == strings.end()) {
+						throw;
+					}
+					else return distance(strings.begin(), si);
+				}
 			};
 			//TODO: sort out locals in message sends
 			struct local_context {
+				vector<instruction> code;
 				map<string, uint8_t> tb;
 				map<string, string_id_t> local_types;
 				stack<uint8_t> unused;
@@ -60,8 +68,11 @@ namespace nkqc {
 #undef visit_f_decl
 					context* cx; local_context* lc;
 			public:
-				void visit(context& cx, local_context &lc, shared_ptr<ast::expr> xpr);
+				expr_emitter(context* cx) : cx(cx), lc(nullptr) {}
+				void visit(local_context &lc, shared_ptr<ast::expr> xpr);
 			};
+
+			
 		}
 	}
 }

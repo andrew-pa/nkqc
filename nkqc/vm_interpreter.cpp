@@ -70,6 +70,17 @@ namespace nkqc {
 					case opcode::load_local: stk.push(locals[x]); break;
 					case opcode::copy_local: locals[x] = stk.top(); break;
 					case opcode::move_local: locals[x] = stk.top(); stk.pop(); break;
+					case opcode::load_instance_var: stk.push(locals[0].object()->instance_vars[x]); break;
+					case opcode::move_instance_var: locals[0].object()->instance_vars[x] = stk.top(); stk.pop(); break;
+					case opcode::copy_instance_var: locals[0].object()->instance_vars[x] = stk.top(); break;
+					case opcode::class_for_name: {
+						auto ci = x;
+						if (ci == (uint32_t)-1) {
+							ci = stk.top().integer();
+							stk.pop();
+						}
+						stk.push(class_idx[ci]);
+					} break;
 					case opcode::create_object: {
 						auto cobj = class_idx[stk.top().integer()]; stk.pop();
 						auto o = new stobject(cobj, cobj->instance_vars[2].integer());
@@ -88,14 +99,15 @@ namespace nkqc {
 						stobject* mo = nullptr;
 						while (class_of_recv != nullptr) {
 							auto mar = class_of_recv->instance_vars[3].object()->instance_vars;
-							for (size_t i = 1; i < mar[0].integer(); ++i) {
+							for (size_t i = 1; i < mar[0].integer()+1; ++i) {
 								if (mar[i].object()->instance_vars[0].integer() == x) {
 									mo = mar[i].object();
-									break;
+									goto found_method;
 								}
 							}
 							class_of_recv = class_of_recv->instance_vars[1].object(); //get super class
 						}
+						found_method:
 						for (int i = 0; i < mo->instance_vars[1].integer(); ++i) {
 							nilc[i + 1] = stk.top(); stk.pop();
 						}

@@ -28,10 +28,13 @@ namespace nkqc {
 			move_local,		//move_local:		store the value on top of the stack to a local, then pop that value off of the stack
 			copy_local,		//copy_local:		store the value on top of the stack to a local, but don't pop it off
 			create_object,	//create_object:	create a object of the class named on top of the stack by its string(id) name
+			class_for_name, //
 			send_message,	//send_message:		send a object a message, object on top of stack, message sel string id in extra bytes
 							//TODO: Should send_message have a variant that takes the sel id off the stack?
 			//TODO: branching
-			//TODO: instance vars
+			load_instance_var,
+			move_instance_var,
+			copy_instance_var,
 		};
 
 		enum class math_opcode : uint16_t {
@@ -63,6 +66,10 @@ namespace nkqc {
 				case opcode::send_message:
 				case opcode::math:
 				case opcode::push:
+				case opcode::load_instance_var:
+				case opcode::move_instance_var:
+				case opcode::copy_instance_var:
+				case opcode::class_for_name:
 					return 32;
 				}
 			}

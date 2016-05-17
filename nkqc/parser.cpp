@@ -104,6 +104,14 @@ namespace nkqc {
 			else if (next_is_number()) {
 				current_expr = parse_number();
 			}
+			else if (curr_char() == '>' && peek_char() == '-') {
+				string v;
+				while (curr_char() != '<') {
+					v += curr_char();
+					next_char();
+				}
+				current_expr = make_shared<tag_expr>(v);
+			}
 			else if (curr_char() == '\'') {
 				next_char();
 				current_expr = make_shared<string_expr>(parse_string_lit());
@@ -155,19 +163,105 @@ namespace nkqc {
 			}
 			return current_expr;
 		}
+		
 
-		string expr_parser::preprocess(const string & s) {
+
+		shared_ptr<ast::top_level::class_decl> class_parser::_parse() {
+			next_ws();
+			auto super_class = get_token();
+			next_ws();
+			auto kwd = get_token();
+			assert(kwd == "subclass:");
+			next_ws();
+			auto class_name = get_token();
+			next_ws();
+			assert(curr_char() == '[');
+			next_char_ws();
+			vector<string> iv;
+			if (curr_char() == '|') {
+				next_char_ws();
+				while (curr_char() != '|') {
+					iv.push_back(get_token());
+					next_ws();
+				}
+				next_char_ws();
+			}
+			vector<ast::top_level::method_decl> md;
+			while (curr_char() != ']') {
+				md.push_back(parse_method());
+				next_ws();
+			}
+			next_char();
+			return make_shared<ast::top_level::class_decl>(super_class, class_name, iv, md);
+		}
+
+		ast::top_level::method_decl class_parser::parse_method() {
+			next_ws();
+			auto fkom = get_token();
+			ast::top_level::method_decl::modifier md = ast::top_level::method_decl::modifier::none;
+			string sel; vector<string> args;
+			if (fkom[0] == '<') {
+				assert(fkom[fkom.size() - 1] == '>');
+				auto m = fkom.substr(1, fkom.size() - 1);
+				if (m == "static") md = ast::top_level::method_decl::modifier::static_;
+			}
+			
+			if (fkom[fkom.size() - 1] == ':') {
+				sel = fkom;
+				while (curr_char() != '[') {
+					next_ws();
+					args.push_back(get_token());
+					next_ws();
+					auto nk = get_token();
+					assert(nk[nk.size() - 1] == ':');
+					sel += nk;
+				}
+			} 
+			else if (!isalnum(fkom[0]) && (fkom.size() > 1 || !isalnum(fkom[1]))) { //binary operator
+				sel = fkom;
+				next_ws();
+				args.push_back(get_token());
+				next_ws();
+			}
+			else { //unary op
+				sel = fkom;
+				next_ws();
+			}
+			assert(curr_char() == '[');
+			next_char_ws();
+			vector<string> lv;
+			if (curr_char() == '|') {
+				next_char_ws();
+				while (curr_char() != '|') {
+					lv.push_back(get_token());
+					next_ws();
+				}
+				next_char();
+			}
+			expr_parser x;
+			auto rv = ast::top_level::method_decl(sel, args, lv, x.parse(*this), md);
+			next_ws();
+			assert(curr_char() == ']');
+			next_char();
+			return rv;
+		}
+
+
+
+		string preprocess(const string & s) {
 			string fs;
 			size_t fqp = s.find('"');
 			size_t lfqp = 0;
 			while (fqp != s.npos) {
-				auto lqp = s.find('"', fqp+1);
+				auto lqp = s.find('"', fqp + 1);
 				assert(lqp != s.npos);
-				fs += s.substr(lfqp, fqp-lfqp);
-				fqp = s.find('"',lqp+1);
-				lfqp = lqp+1;
+				fs += s.substr(lfqp, fqp - lfqp);
+				fqp = s.find('"', lqp + 1);
+				lfqp = lqp + 1;
 			}
 			return fs + s.substr(lfqp);
 		}
-	}
+	}		
+
+
 }

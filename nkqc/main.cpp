@@ -1,5 +1,6 @@
 #include "parser.h"
 #include <iostream>
+#include <fstream>
 using namespace std;
 
 #include "vm.h"
@@ -14,7 +15,51 @@ using namespace std;
 //TODO: documention
 //TODO: std library
 
-int main() {
+int main(int argc, char* argv[]) {
+	vector<string> args(argv[0], argv[argc]);
+	
+	string input_file_contents;
+	{
+		ifstream input_file(args[0]);
+		while (input_file) {
+			string line; getline(input_file, line);
+			input_file_contents += line + "\n";
+		}
+	}
+	nkqc::parser::preprocess(input_file_contents);
+
+	nkqc::parser::class_parser cp{ input_file_contents };
+	nkqc::vm::codegen::context cx;
+	nkqc::vm::codegen::expr_emitter emx(&cx);
+	while (cp.more()) {
+		auto cls = cp.parse();
+		vector<nkqc::vm::string_id_t> iv; 
+		for (const auto& ivn : cls->instance_vars) iv.push_back(cx.add_string(ivn));
+		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> mth;
+		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> clsmth;
+		for (const auto& md : cls->methods) {
+			nkqc::vm::codegen::local_context lc{ cx.find_string(cls->name) };
+			for (const auto& a : md.args) lc.alloc_local(a, 0);
+			for (const auto& l : md.local_vars) lc.alloc_local(l, 0);
+			emx.visit(lc, md.body);
+			auto m = nkqc::vm::stmethod(md.args.size(), lc.code);
+			if (md.mod == nkqc::ast::top_level::method_decl::modifier::static_)
+				clsmth[cx.add_string(md.sel)] = m;
+			else
+				mth[cx.add_string(md.sel)] = m;
+		}
+		cx.classes.push_back(nkqc::vm::stclass(
+			cx.add_string(cls->super_name+"Class"),
+			cx.add_string(cls->name+"Class"),
+			{}, clsmth));
+		cx.classes.push_back(nkqc::vm::stclass(
+			cx.add_string(cls->super_name),
+			cx.add_string(cls->name),
+			iv, mth));
+	}
+
+
+
 	/*{
 		nkqc::parser::expr_parser xp;
 	auto res = xp.parse(
@@ -25,7 +70,7 @@ int main() {
 		^ x < y
 	)");
 	res->print(cout);}*/
-	nkqc::vm::codegen::context cx;
+	/*nkqc::vm::codegen::context cx;
 
 	cx.classes.push_back(nkqc::vm::stclass(0, cx.add_string("Class"), {
 		cx.add_string("name"), cx.add_string("super_name"), 
@@ -51,5 +96,5 @@ int main() {
 	nkqc::vm::image img{ cx.classes, cx.strings };
 
 	nkqc::vm::interpreter::vmcore vc(img);
-	vc.run(cx.code);
+	vc.run(cx.code);*/
 }
