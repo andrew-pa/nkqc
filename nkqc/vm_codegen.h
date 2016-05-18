@@ -23,7 +23,7 @@ namespace nkqc {
 				string_id_t find_string(const string& s) {
 					auto si = find(strings.begin(), strings.end(), s);
 					if (si == strings.end()) {
-						throw;
+						return -1;
 					}
 					else return distance(strings.begin(), si);
 				}

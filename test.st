@@ -19,10 +19,10 @@ Object subclass: SmallInteger [
 Object subclass: Point [
 	| x y |
 	!static atX: aXCoord Y: aYCoord [
-		^ super new; x: aXCoord; y: aYCoord
+		^ self new; x: aXCoord; y: aYCoord
 	]
 	!static atOrigin [
-		^ super new; x: 0; y: 0
+		^ self new; x: 0; y: 0
 	]	
 
 	x [ ^ x ]

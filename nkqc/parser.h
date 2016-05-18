@@ -68,18 +68,19 @@ namespace nkqc {
 			}
 
 			//TODO: message selector parsing in both method headers and sends expects get_token and peek_token to return tokens ending in ':', but it doesn't do that
-			inline string get_token() {
+			inline string get_token(bool isSel = false) {
 				string n;
 				do {
 					n += curr_char();
 					next_char();
 				} while (more_token());
+				if (isSel && curr_char() == ':') { n += ':'; next_char(); }
 				return n;
 			}
 
-			inline string peek_token() {
+			inline string peek_token(bool isSel = false) {
 				int oi = idx;
-				string n = get_token();
+				string n = get_token(isSel);
 				idx = oi;
 				return n;
 			}

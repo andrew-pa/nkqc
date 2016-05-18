@@ -31,7 +31,7 @@ namespace nkqc {
 		shared_ptr<ast::msgsnd_expr> expr_parser::parse_keyword_msgsnd(shared_ptr<expr> rcv) {
 			string msgn; vector<shared_ptr<expr>> args;
 			while (more_token()) {
-				string mnp = get_token();
+				string mnp = get_token(true);
 				assert(mnp[mnp.size() - 1] == ':');
 				msgn += mnp;
 				next_ws();
@@ -42,10 +42,11 @@ namespace nkqc {
 		}
 
 		shared_ptr<ast::msgsnd_expr> expr_parser::parse_msgsnd(shared_ptr<expr> rcv, bool akm) {
-			string tst = peek_token();
+			string tst = peek_token(true);
 			assert(tst.size() > 0);
 			shared_ptr<ast::msgsnd_expr> ms;
-			if (akm && tst[tst.size() - 1] == ':') {
+			if (tst[tst.size() - 1] == ':') {
+				if (!akm) return nullptr;
 				ms = parse_keyword_msgsnd(rcv);
 			}
 			else if(is_binary_op()) {
@@ -155,8 +156,9 @@ namespace nkqc {
 			}
 			next_ws();
 			// -- msgsnd --
-			if (allow_any_msgsnd && more_token() || is_binary_op()) {
-				current_expr = parse_msgsnd(current_expr,allow_keyword_msgsnd);
+			while (allow_any_msgsnd && more_token() || is_binary_op()) {
+				auto msg = parse_msgsnd(current_expr,allow_keyword_msgsnd);
+				if (msg) current_expr = msg; else break;
 			}
 			// -- compound --
 			if (allow_compound && curr_char() == '.') {
@@ -172,10 +174,9 @@ namespace nkqc {
 			next_ws();
 			auto super_class = get_token();
 			next_ws();
-			auto kwd = get_token();
-			assert(kwd == "subclass");
-			assert(curr_char() == ':');
-			next_char_ws();
+			auto kwd = get_token(true);
+			assert(kwd == "subclass:");
+			next_ws();
 			auto class_name = get_token();
 			next_ws();
 			assert(curr_char() == '[');
@@ -200,28 +201,27 @@ namespace nkqc {
 
 		ast::top_level::method_decl class_parser::parse_method() {
 			next_ws();
-			auto fkom = get_token();
+			auto fkom = get_token(true);
 			ast::top_level::method_decl::modifier md = ast::top_level::method_decl::modifier::none;
 			string sel; vector<string> args;
 			if (fkom[0] == '!') {
 				auto m = fkom.substr(1, fkom.size() - 1);
 				if (m == "static") md = ast::top_level::method_decl::modifier::static_;
 				next_ws();
-				fkom = get_token();
+				fkom = get_token(true);
 			}
 			
-			if (curr_char() == ':') {
-				sel = fkom + ':';
+			if (fkom[fkom.size()-1] == ':') {
+				sel = fkom;
 				next_char();
 				while (curr_char() != '[') {
 					next_ws();
 					args.push_back(get_token());
 					next_ws();
 					if (curr_char() == '[') break; //TODO: this is stupid
-					auto nk = get_token();
-					assert(curr_char() == ':');
-					next_char();
-					sel += nk+':';
+					auto nk = get_token(true);
+					assert(nk[nk.size()-1] == ':');
+					sel += nk;
 				}
 			} 
 			else if (!isalnum(fkom[0]) && (fkom.size() > 1 || !isalnum(fkom[1]))) { //binary operator

@@ -20,7 +20,7 @@ namespace nkqc {
 							lc->code.push_back(instruction(opcode::class_for_name, (uint32_t)si));
 							break;
 						}
-						else if (lc->local_types[0] == c.name) {
+						else if (lc->local_types["self"] == c.name) {
 							auto ii = find(c.inst_vars.begin(), c.inst_vars.end(), si);
 							if (ii != c.inst_vars.end()) {
 								lc->code.push_back(instruction(opcode::load_instance_var, (uint32_t)distance(c.inst_vars.begin(),ii)));
@@ -83,13 +83,15 @@ namespace nkqc {
 			}
 			visitf(assignment_expr) {
 				auto si = cx->find_string(xpr.name);
-				for (const auto& c : cx->classes) {
-					if (lc->local_types[0] == c.name) {
-						auto ii = find(c.inst_vars.begin(), c.inst_vars.end(), si);
-						if (ii != c.inst_vars.end()) {
-							xpr.val->visit(this);
-							lc->code.push_back(instruction(opcode::move_instance_var, (uint32_t)distance(c.inst_vars.begin(), ii)));
-							return;
+				if (si > 0) {
+					for (const auto& c : cx->classes) {
+						if (lc->local_types["self"] == c.name) {
+							auto ii = find(c.inst_vars.begin(), c.inst_vars.end(), si);
+							if (ii != c.inst_vars.end()) {
+								xpr.val->visit(this);
+								lc->code.push_back(instruction(opcode::move_instance_var, (uint32_t)distance(c.inst_vars.begin(), ii)));
+								return;
+							}
 						}
 					}
 				}
