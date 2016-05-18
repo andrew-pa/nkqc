@@ -19,16 +19,15 @@ namespace nkqc {
 					if (c.name == class_str) o = class_class_obj;
 					else if (c.name == method_str) o = method_class_obj;
 					else if (c.name == array_str) o = array_class_obj;
-					else o = new stobject(class_class_obj, 4);
+					else o = new stobject(class_idx[find_string(strings[c.name]+"Class")]/*class_class_obj*/, 4);
 					o->instance_vars[0] = c.name;
 					if (c.name == sint_str) small_integer_class_obj = o;
 					o->instance_vars[1] = class_idx[c.super];
 					if (c.inst_vars.size() > 0) {
-						auto ivaro = new stobject(array_class_obj, 1 + c.inst_vars.size());
+						auto ivaro = new stobject(array_class_obj, c.inst_vars.size());
 						objects.push_back(ivaro);
 						o->instance_vars[2] = value(ivaro);
-						ivaro->instance_vars[0] = c.inst_vars.size();
-						size_t i = 1;
+						size_t i = 0;
 						for (const auto& v : c.inst_vars) {
 							ivaro->instance_vars[i++] = value(v);
 						}
@@ -36,11 +35,10 @@ namespace nkqc {
 					else o->instance_vars[2] = value(nullptr);
 
 					if (c.methods.size() > 0) {
-						auto maro = new stobject(array_class_obj, 1 + c.methods.size());
+						auto maro = new stobject(array_class_obj, c.methods.size());
 						objects.push_back(maro);
 						o->instance_vars[3] = value(maro);
-						maro->instance_vars[0] = c.methods.size();
-						size_t i = 1;
+						size_t i = 0;
 						for (const auto& m : c.methods) {
 							stobject* om = new stobject(method_class_obj, 3);
 							om->instance_vars[0] = m.first;
@@ -81,6 +79,17 @@ namespace nkqc {
 						}
 						stk.push(class_idx[ci]);
 					} break;
+					case opcode::class_of: {
+						auto vo = stk.top(); stk.pop();
+						stobject* cls = nullptr;
+						if (!vo.is_object) {
+							cls = small_integer_class_obj;
+						}
+						else {
+							cls = vo.object()->cls;
+						}
+						stk.push(cls);
+					} break;
 					case opcode::create_object: {
 						auto cobj = class_idx[stk.top().integer()]; stk.pop();
 						auto o = new stobject(cobj, cobj->instance_vars[2].integer());
@@ -99,7 +108,7 @@ namespace nkqc {
 						stobject* mo = nullptr;
 						while (class_of_recv != nullptr) {
 							auto mar = class_of_recv->instance_vars[3].object()->instance_vars;
-							for (size_t i = 1; i < mar[0].integer()+1; ++i) {
+							for (size_t i = 0; i < mar.size(); ++i) {
 								if (mar[i].object()->instance_vars[0].integer() == x) {
 									mo = mar[i].object();
 									goto found_method;

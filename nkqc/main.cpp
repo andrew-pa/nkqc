@@ -8,7 +8,7 @@ using namespace std;
 #include "vm_interpreter.h"
 
 //TODO: cmake build system
-//TODO: finalize class/method defn syntax, file syntax
+//TODO: finalize class/method defn syntax, file syntax & document
 //TODO: make compiler frontend
 //		make it so that it has a instant interp mode
 //TODO: make VM frontend
@@ -16,7 +16,7 @@ using namespace std;
 //TODO: std library
 
 int main(int argc, char* argv[]) {
-	vector<string> args(argv[0], argv[argc]);
+	vector<string> args; for (int i = 1; i < argc; i++) args.push_back(argv[i]);
 	
 	string input_file_contents;
 	{
@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
 		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> mth;
 		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> clsmth;
 		for (const auto& md : cls->methods) {
-			nkqc::vm::codegen::local_context lc{ cx.find_string(cls->name) };
+			nkqc::vm::codegen::local_context lc{ cx.add_string(cls->name) };
 			for (const auto& a : md.args) lc.alloc_local(a, 0);
 			for (const auto& l : md.local_vars) lc.alloc_local(l, 0);
 			emx.visit(lc, md.body);
@@ -58,6 +58,12 @@ int main(int argc, char* argv[]) {
 			iv, mth));
 	}
 
+	nkqc::vm::image img{ cx.classes, cx.strings };
+
+	nkqc::vm::interpreter::vmcore vc(img);
+	auto instr = nkqc::vm::codegen::assemble(cx, R"(clsnmd !Program;sndmsg !run)");
+	vc.run(instr);
+	return 0;
 
 
 	/*{

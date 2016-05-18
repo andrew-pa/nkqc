@@ -19,13 +19,19 @@ namespace nkqc {
 				while (more_char() && (isspace(curr_char()) || iscntrl(curr_char()))) next_char();
 			}
 			
-			inline bool isterm(int off = 0) {
+			inline bool istermc(char c) {
+				return c == '\0' || isspace(c)
+					|| c == '(' || c == ')'
+					|| c == '[' || c == ']' || c == '|'
+					|| c == '=' || c == ';' || c == '.';
+			}
+			inline bool isterm(int off = 0, bool bop = true) {
 				char c = peek_char(off);
 				return c == '\0' || isspace(c)
 					|| c == '(' || c == ')'
 					|| c == '[' || c == ']' || c == '|'
 					|| c == '=' || c == ';' || c == '.'
-					|| is_binary_op(off);
+					|| (bop && is_binary_op(off));
 			}
 
 			inline void next_char_ws() {
@@ -43,7 +49,7 @@ namespace nkqc {
 			
 			inline bool is_binary_op(int off = 0) {
 				auto c = peek_char(off); auto nc = peek_char(off + 1);
-				return !isalnum(c) && (iswspace(nc) || !isalnum(nc)); /*c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '='
+				return (!istermc(c) && !isalnum(c)) && (istermc(nc) || !isalnum(nc)); /*c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '='
 					|| ((c == '!' || c == '<' || c == '>') && nc == '=')
 					|| c == '<' || c == '>'
 					|| c == '&' || c == '|'*/;
@@ -53,7 +59,7 @@ namespace nkqc {
 				if (!is_binary_op()) return "";
 				auto c = curr_char(); auto nc = peek_char();
 				string res(1, c);
-				if (!iswspace(nc) && !isalnum(nc)/*(c == '!' || c == '<' || c == '>') && nc == '='*/) {
+				if (!istermc(nc) && !isalnum(nc)/*(c == '!' || c == '<' || c == '>') && nc == '='*/) {
 					res += nc;
 					next_char();
 				}
@@ -61,6 +67,7 @@ namespace nkqc {
 				return res;
 			}
 
+			//TODO: message selector parsing in both method headers and sends expects get_token and peek_token to return tokens ending in ':', but it doesn't do that
 			inline string get_token() {
 				string n;
 				do {
@@ -91,6 +98,7 @@ namespace nkqc {
 				idx = p.idx;
 				auto rv = _parse(true, true);
 				p.idx = idx;
+				return rv;
 			}
 		protected:
 			shared_ptr<ast::number_expr> parse_number();

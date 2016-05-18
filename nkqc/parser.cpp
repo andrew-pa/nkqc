@@ -105,11 +105,13 @@ namespace nkqc {
 				current_expr = parse_number();
 			}
 			else if (curr_char() == '>' && peek_char() == '-') {
+				next_char();next_char();
 				string v;
 				while (curr_char() != '<') {
 					v += curr_char();
 					next_char();
 				}
+				next_char();
 				current_expr = make_shared<tag_expr>(v);
 			}
 			else if (curr_char() == '\'') {
@@ -153,7 +155,7 @@ namespace nkqc {
 			}
 			next_ws();
 			// -- msgsnd --
-			while (allow_any_msgsnd && more_token() || is_binary_op()) {
+			if (allow_any_msgsnd && more_token() || is_binary_op()) {
 				current_expr = parse_msgsnd(current_expr,allow_keyword_msgsnd);
 			}
 			// -- compound --
@@ -171,8 +173,9 @@ namespace nkqc {
 			auto super_class = get_token();
 			next_ws();
 			auto kwd = get_token();
-			assert(kwd == "subclass:");
-			next_ws();
+			assert(kwd == "subclass");
+			assert(curr_char() == ':');
+			next_char_ws();
 			auto class_name = get_token();
 			next_ws();
 			assert(curr_char() == '[');
@@ -191,7 +194,7 @@ namespace nkqc {
 				md.push_back(parse_method());
 				next_ws();
 			}
-			next_char();
+			next_char_ws();
 			return make_shared<ast::top_level::class_decl>(super_class, class_name, iv, md);
 		}
 
@@ -200,21 +203,25 @@ namespace nkqc {
 			auto fkom = get_token();
 			ast::top_level::method_decl::modifier md = ast::top_level::method_decl::modifier::none;
 			string sel; vector<string> args;
-			if (fkom[0] == '<') {
-				assert(fkom[fkom.size() - 1] == '>');
+			if (fkom[0] == '!') {
 				auto m = fkom.substr(1, fkom.size() - 1);
 				if (m == "static") md = ast::top_level::method_decl::modifier::static_;
+				next_ws();
+				fkom = get_token();
 			}
 			
-			if (fkom[fkom.size() - 1] == ':') {
-				sel = fkom;
+			if (curr_char() == ':') {
+				sel = fkom + ':';
+				next_char();
 				while (curr_char() != '[') {
 					next_ws();
 					args.push_back(get_token());
 					next_ws();
+					if (curr_char() == '[') break; //TODO: this is stupid
 					auto nk = get_token();
-					assert(nk[nk.size() - 1] == ':');
-					sel += nk;
+					assert(curr_char() == ':');
+					next_char();
+					sel += nk+':';
 				}
 			} 
 			else if (!isalnum(fkom[0]) && (fkom.size() > 1 || !isalnum(fkom[1]))) { //binary operator

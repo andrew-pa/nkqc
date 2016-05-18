@@ -29,6 +29,7 @@ namespace nkqc {
 			copy_local,		//copy_local:		store the value on top of the stack to a local, but don't pop it off
 			create_object,	//create_object:	create a object of the class named on top of the stack by its string(id) name
 			class_for_name, //
+			class_of, //
 			send_message,	//send_message:		send a object a message, object on top of stack, message sel string id in extra bytes
 							//TODO: Should send_message have a variant that takes the sel id off the stack?
 			//TODO: branching
@@ -57,6 +58,7 @@ namespace nkqc {
 				case opcode::nop:
 				case opcode::discard:
 				case opcode::create_object:
+				case opcode::class_of:
 					return 0;
 				case opcode::push8:
 				case opcode::load_local:

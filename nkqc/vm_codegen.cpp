@@ -47,7 +47,7 @@ namespace nkqc {
 				//TODO: impl Symbol literal codegen
 			}
 			visitf(char_expr) {
-				//TODO: impl Symbol literal codegen
+				//TODO: impl Char literal codegen
 			}
 			visitf(array_expr) {
 				//TODO: impl Array literal codegen
@@ -99,7 +99,7 @@ namespace nkqc {
 			}
 			visitf(tag_expr) {
 				if (xpr.v.size() > 3 && xpr.v.substr(0,3) == "asm") {
-					auto c = assemble(*cx, xpr.v.substr(3));
+					auto c = assemble(*cx, xpr.v.substr(4));
 					lc->code.insert(lc->code.end(), c.begin(), c.end());
 				}
 			}
@@ -144,6 +144,7 @@ namespace nkqc {
 					if (op == "nop") instr.push_back(instruction(opcode::nop));
 					else if (op == "disc") instr.push_back(instruction(opcode::discard));
 					else if (op == "crobj") instr.push_back(instruction(opcode::create_object));
+					else if (op == "clsof") instr.push_back(instruction(opcode::class_of));
 					else {
 						string ex = ln.substr(sp+1);
 						uint32_t exv = 0;
@@ -159,6 +160,7 @@ namespace nkqc {
 						else if (op == "mvlc") instr.push_back(instruction(opcode::move_local, (uint8_t)exv));
 						else if (op == "cplc") instr.push_back(instruction(opcode::copy_local, (uint8_t)exv));
 						else if (op == "sndmsg") instr.push_back(instruction(opcode::send_message, exv));
+						else if (op == "clsnmd") instr.push_back(instruction(opcode::class_for_name, exv));
 						else if (op == "math") {
 							uint32_t rex = 0;
 							switch (ex[0]) {
