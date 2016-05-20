@@ -195,13 +195,11 @@ namespace nkqc{
 			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};
 		struct cascade_msgsnd : public msgsnd_expr {
-			shared_ptr<msgsnd_expr> first;
-			shared_ptr<msgsnd_expr> second;
-			cascade_msgsnd(shared_ptr<msgsnd_expr> f, shared_ptr<msgsnd_expr> s) : msgsnd_expr(f->rcv), first(f), second(s) {}
+			vector<pair<string,vector<shared_ptr<expr>>>> msgs;
+			cascade_msgsnd(shared_ptr<expr> rcv,
+				vector<pair<string, vector<shared_ptr<expr>>>> f) : msgsnd_expr(rcv), msgs(f) {}
 			void print(ostream& os) const override { 
-				first->print(os);
-				os << ";";
-				second->print(os);
+				//TODO: implement printing for cascades
 			}
 			void visit(expr_visiter* V) const override { V->visit(*this); }
 		};

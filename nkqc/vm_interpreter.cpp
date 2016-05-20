@@ -19,7 +19,16 @@ namespace nkqc {
 					if (c.name == class_str) o = class_class_obj;
 					else if (c.name == method_str) o = method_class_obj;
 					else if (c.name == array_str) o = array_class_obj;
-					else o = new stobject(class_idx[find_string(strings[c.name]+"Class")]/*class_class_obj*/, 4);
+					//TODO: !!! sort out ClassClass stuff
+					else {
+						stobject* cls_of_this_cls = nullptr;
+						if (c.flgs == stclass::flags::meta_class) { cls_of_this_cls = class_class_obj; }
+						else {
+							auto n = strings[c.name] + "Class";
+							cls_of_this_cls = class_idx[find_string(n)];
+						}
+						o = new stobject(cls_of_this_cls, 4);
+					}
 					o->instance_vars[0] = c.name;
 					if (c.name == sint_str) small_integer_class_obj = o;
 					o->instance_vars[1] = class_idx[c.super];
@@ -46,7 +55,7 @@ namespace nkqc {
 							om->instance_vars[2] = code_chunks.size();
 							code_chunks.push_back(m.second.code);
 							objects.push_back(om);
-							maro->instance_vars[i] = value(om);
+							maro->instance_vars[i++] = value(om);
 						}
 					}
 					else o->instance_vars[3] = value(nullptr);
@@ -62,7 +71,7 @@ namespace nkqc {
 					auto x = code[pc].extra;
 					switch (code[pc].op) {
 					case opcode::nop: break;
-					case opcode::discard: stk.pop(); break;
+					case opcode::discard: if(!stk.empty()) stk.pop(); break; //makes discard a nop if there's nothing, which makes sense for most of it's uses
 					case opcode::push:
 					case opcode::push8: stk.push(value(x)); break;
 					case opcode::load_local: stk.push(locals[x]); break;
@@ -91,8 +100,9 @@ namespace nkqc {
 						stk.push(cls);
 					} break;
 					case opcode::create_object: {
-						auto cobj = class_idx[stk.top().integer()]; stk.pop();
-						auto o = new stobject(cobj, cobj->instance_vars[2].integer());
+						auto cobj = /*class_idx[stk.top().integer()]*/stk.top().object(); stk.pop();
+						auto o = new stobject(cobj, cobj->instance_vars[2].object() == nullptr ? 0 : 
+							cobj->instance_vars[2].object()->instance_vars.size());
 						objects.push_back(o);
 						stk.push(value(o));
 					} break;

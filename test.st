@@ -2,8 +2,9 @@
 nil subclass: Class [ | name super_name instance_variables methods | ]
 
 nil subclass: Object [
-	new [ >-asm ldlc 0; clsof; crobj< ]
+	!static new [ >-asm ldlc 0; crobj< ]
 	class [ >-asm ldlc 0; clsof< ]
+	yourself [ ^ self ]
 ]
 
 Object subclass: Method [ | sel num_args code_idx | ]
@@ -19,10 +20,10 @@ Object subclass: SmallInteger [
 Object subclass: Point [
 	| x y |
 	!static atX: aXCoord Y: aYCoord [
-		^ self new; x: aXCoord; y: aYCoord
+		^ (self new) x: aXCoord; y: aYCoord; yourself
 	]
 	!static atOrigin [
-		^ self new; x: 0; y: 0
+		^ (self new) x: 0; y: 0; yourself
 	]	
 
 	x [ ^ x ]

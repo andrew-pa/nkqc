@@ -52,12 +52,6 @@ namespace nkqc {
 					else return -1;
 				}
 
-				/*class_id_t find_class_by_name(string_id_t strid) {
-					//auto s = find_if(classes.begin(), classes.end(), [&](auto c) {return c.name == strid;});
-					//if (s != classes.end()) return distance(classes.begin(), s);
-					//else 
-					return -1;
-				}*/
 
 				vmcore() {}
 

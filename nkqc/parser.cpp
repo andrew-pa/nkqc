@@ -28,42 +28,66 @@ namespace nkqc {
 			return v;
 		}
 		
-		shared_ptr<ast::msgsnd_expr> expr_parser::parse_keyword_msgsnd(shared_ptr<expr> rcv) {
-			string msgn; vector<shared_ptr<expr>> args;
-			while (more_token()) {
-				string mnp = get_token(true);
-				assert(mnp[mnp.size() - 1] == ':');
-				msgn += mnp;
-				next_ws();
-				args.push_back(_parse(false, false));
+		pair<pair<string, vector<shared_ptr<expr>>>,int>  expr_parser::parse_msgsnd_core() {
+			string tst = peek_token(true);
+			assert(tst.size() > 0);
+			pair<string, vector<shared_ptr<expr>>> msg;
+			int msgt = -1;
+			if (tst[tst.size() - 1] == ':') {
+				string msgn; vector<shared_ptr<expr>> args;
+				while (more_token()) {
+					string mnp = get_token(true);
+					assert(mnp[mnp.size() - 1] == ':');
+					msgn += mnp;
+					next_ws();
+					args.push_back(_parse(false, false));
+				}
+				msg = { msgn, args };
+				msgt = 0;
 			}
-			return make_shared<keyword_msgsnd>(rcv, msgn, args);
-			
+			else if (is_binary_op()) {
+				auto op = get_binary_op();
+				next_ws();
+				msg = { op,{ _parse(false,true) } };
+				msgt = 1;
+			}
+			else {
+				msg = { get_token(),{} };
+				msgt = 2;
+			}
+			return { msg,msgt };
 		}
 
 		shared_ptr<ast::msgsnd_expr> expr_parser::parse_msgsnd(shared_ptr<expr> rcv, bool akm) {
-			string tst = peek_token(true);
-			assert(tst.size() > 0);
-			shared_ptr<ast::msgsnd_expr> ms;
-			if (tst[tst.size() - 1] == ':') {
-				if (!akm) return nullptr;
-				ms = parse_keyword_msgsnd(rcv);
+			if (!more_char() || isterm(0,false)) return nullptr;
+			if (!akm) {
+				auto t = peek_token(true);
+				if (t.size() > 0 && t[t.size() - 1] == ':') return nullptr;
 			}
-			else if(is_binary_op()) {
-				auto op = get_binary_op();
-				next_ws();
-				ms = make_shared<binary_msgsnd>(rcv, op, _parse(false,true));
-			}
-			else {
-				ms = make_shared<unary_msgsnd>(rcv, get_token());
-			}
+			auto M = parse_msgsnd_core();
 			next_ws();
 			if (curr_char() == ';') {
-				next_char_ws();
-				//ms = shared_ptr<cascade_msgsnd>(new cascade_msgsnd(ms, parse_msgsnd(rcv, true)));
-				ms = make_shared<cascade_msgsnd>(ms, parse_msgsnd(rcv, true));
+				vector<pair<string, vector<shared_ptr<expr>>>> msgs;
+				msgs.push_back(M.first);
+				do {
+					next_char_ws();
+					msgs.push_back(parse_msgsnd_core().first);
+					next_ws();
+				} while (curr_char() == ';');
+				return make_shared<cascade_msgsnd>(rcv, msgs);
 			}
-			return ms;
+			else {
+				auto msg = M.first;
+				switch (M.second)
+				{
+				case 0:
+					return make_shared<keyword_msgsnd>(rcv, msg.first, msg.second);
+				case 1:
+					return make_shared<binary_msgsnd>(rcv, msg.first, msg.second[0]);
+				case 2:
+					return make_shared<unary_msgsnd>(rcv, msg.first);
+				}
+			}
 		}
 
 		shared_ptr<expr> expr_parser::_parse(bool allow_compound, bool allow_keyword_msgsnd, bool allow_any_msgsnd) {

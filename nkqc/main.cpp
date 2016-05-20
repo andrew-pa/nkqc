@@ -37,6 +37,16 @@ int main(int argc, char* argv[]) {
 		for (const auto& ivn : cls->instance_vars) iv.push_back(cx.add_string(ivn));
 		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> mth;
 		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> clsmth;
+		auto cc = cx.classes.size();
+		cx.classes.push_back(nkqc::vm::stclass(
+			cls->super_name == "nil" ? -1 : cx.add_string(cls->super_name + "Class"),
+			cx.add_string(cls->name + "Class"),
+			{}, {}, nkqc::vm::stclass::flags::meta_class));
+		auto c = cx.classes.size();
+		cx.classes.push_back(nkqc::vm::stclass(
+			cls->super_name == "nil" ? -1 : cx.add_string(cls->super_name),
+			cx.add_string(cls->name),
+			iv, {}));
 		for (const auto& md : cls->methods) {
 			nkqc::vm::codegen::local_context lc{ cx.add_string(cls->name) };
 			for (const auto& a : md.args) lc.alloc_local(a, 0);
@@ -48,14 +58,8 @@ int main(int argc, char* argv[]) {
 			else
 				mth[cx.add_string(md.sel)] = m;
 		}
-		cx.classes.push_back(nkqc::vm::stclass(
-			cx.add_string(cls->super_name+"Class"),
-			cx.add_string(cls->name+"Class"),
-			{}, clsmth));
-		cx.classes.push_back(nkqc::vm::stclass(
-			cx.add_string(cls->super_name),
-			cx.add_string(cls->name),
-			iv, mth));
+		cx.classes[cc].methods = clsmth;
+		cx.classes[c].methods = mth; //silly hax to ensure that the class is there while the methods are codegen'd 
 	}
 
 	nkqc::vm::image img{ cx.classes, cx.strings };

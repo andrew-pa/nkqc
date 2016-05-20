@@ -13,7 +13,6 @@ namespace nkqc {
 					lc->code.push_back(instruction(opcode::load_local, lci->second));
 				}
 				else {
-					//TODO: could be a instance var or class name
 					auto si = cx->find_string(xpr.v);
 					for (const auto& c : cx->classes) {
 						if (si == c.name) {
@@ -79,7 +78,19 @@ namespace nkqc {
 					(uint32_t)cx->add_string(xpr.msgname)));
 			}
 			visitf(cascade_msgsnd) {
-				//TODO: implement cascading messages
+				xpr.rcv->visit(this);
+				auto rcvl = lc->alloc_local("___tmp_rcv", 0);
+				lc->code.push_back(instruction(opcode::copy_local, rcvl));
+				for (const auto& m : xpr.msgs) {
+					lc->code.push_back(instruction(opcode::discard));
+					if(m.second.size()>0) for (int i = m.second.size() - 1; i >= 0; i--) {
+						m.second[i]->visit(this);
+					}
+					lc->code.push_back(instruction(opcode::load_local, rcvl));
+					lc->code.push_back(instruction(opcode::send_message,
+						(uint32_t)cx->add_string(m.first)));
+				}
+				lc->free_local(rcvl);
 			}
 			visitf(assignment_expr) {
 				auto si = cx->find_string(xpr.name);

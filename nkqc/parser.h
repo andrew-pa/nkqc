@@ -105,7 +105,7 @@ namespace nkqc {
 			shared_ptr<ast::number_expr> parse_number();
 			string parse_string_lit();
 			shared_ptr<ast::msgsnd_expr> parse_msgsnd(shared_ptr<ast::expr> rcv, bool akm);
-			shared_ptr<ast::msgsnd_expr> parse_keyword_msgsnd(shared_ptr<ast::expr> rcv);
+			pair<pair<string, vector<shared_ptr<ast::expr>>>, int> parse_msgsnd_core();
 
 			shared_ptr<ast::expr> _parse(bool allow_compound, bool allow_keyword_msgsnd, bool allow_any_msgsend = true);
 

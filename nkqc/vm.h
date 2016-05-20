@@ -118,13 +118,18 @@ namespace nkqc {
 			stmethod(size_t argc, vector<instruction> cd) : arg_count(argc), code(cd) {}
 		};
 		struct stclass {
+			enum class flags {
+				none,
+				meta_class
+			};
+			flags flgs;
 			string_id_t name;
 			string_id_t super;
 			vector<string_id_t> inst_vars;
 			map<string_id_t, stmethod> methods;
 			stclass() {}
-			stclass(string_id_t sup, string_id_t nm, vector<string_id_t> iv, map<string_id_t, stmethod> mth) :
-				super(sup), name(nm), inst_vars(iv), methods(mth) {}
+			stclass(string_id_t sup, string_id_t nm, vector<string_id_t> iv, map<string_id_t, stmethod> mth, flags f = flags::none) :
+				super(sup), name(nm), inst_vars(iv), methods(mth), flgs(f) {}
 		};
 
 		//TODO: image is a misnomer, should be something more like class file or something
