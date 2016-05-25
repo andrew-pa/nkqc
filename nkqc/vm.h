@@ -36,6 +36,8 @@ namespace nkqc {
 			load_instance_var,
 			move_instance_var,
 			copy_instance_var,
+
+			operand_from_stack,
 		};
 
 		enum class math_opcode : uint16_t {
@@ -109,7 +111,6 @@ namespace nkqc {
 		
 		typedef int32_t string_id_t;
 		typedef int32_t method_id_t;
-		//typedef int32_t class_id_t; //TODO: make class lookup based on strings like Java
 		
 		struct stmethod {
 			size_t arg_count;

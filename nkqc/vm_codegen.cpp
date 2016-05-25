@@ -167,11 +167,17 @@ namespace nkqc {
 						else if(isdigit(ex[0])) {
 							exv = (uint32_t)stoi(ex.c_str(),0,0);
 						}
+						else if (ex == "$stack") {
+							instr.push_back(instruction(opcode::operand_from_stack));
+						}
 						if (op == "push") instr.push_back(instruction(opcode::push, exv));
 						else if (op == "push8") instr.push_back(instruction(opcode::push8, (uint8_t)exv));
 						else if (op == "ldlc") instr.push_back(instruction(opcode::load_local, (uint8_t)exv));
 						else if (op == "mvlc") instr.push_back(instruction(opcode::move_local, (uint8_t)exv));
 						else if (op == "cplc") instr.push_back(instruction(opcode::copy_local, (uint8_t)exv));
+						else if (op == "ldinst") instr.push_back(instruction(opcode::load_instance_var, (uint32_t)exv));
+						else if (op == "mvinst") instr.push_back(instruction(opcode::move_instance_var, (uint32_t)exv));
+						else if (op == "cpinst") instr.push_back(instruction(opcode::copy_instance_var, (uint32_t)exv));
 						else if (op == "sndmsg") instr.push_back(instruction(opcode::send_message, exv));
 						else if (op == "clsnmd") instr.push_back(instruction(opcode::class_for_name, exv));
 						else if (op == "math") {

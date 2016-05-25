@@ -32,7 +32,7 @@ namespace nkqc {
 					o->instance_vars[0] = c.name;
 					if (c.name == sint_str) small_integer_class_obj = o;
 					o->instance_vars[1] = class_idx[c.super];
-					if (c.inst_vars.size() > 0) {
+					//if (c.inst_vars.size() > 0) {
 						auto ivaro = new stobject(array_class_obj, c.inst_vars.size());
 						objects.push_back(ivaro);
 						o->instance_vars[2] = value(ivaro);
@@ -40,8 +40,8 @@ namespace nkqc {
 						for (const auto& v : c.inst_vars) {
 							ivaro->instance_vars[i++] = value(v);
 						}
-					}
-					else o->instance_vars[2] = value(nullptr);
+					//}
+					//else o->instance_vars[2] = value(nullptr);
 
 					if (c.methods.size() > 0) {
 						auto maro = new stobject(array_class_obj, c.methods.size());
@@ -69,7 +69,14 @@ namespace nkqc {
 				map<uint8_t, value> locals = ilc;
 				for (int pc = 0; pc < code.size(); ++pc) {
 					auto x = code[pc].extra;
+					start_interpret_switch:
 					switch (code[pc].op) {
+					case opcode::operand_from_stack: {
+						x = stk.top().integer();
+						stk.pop();
+						++pc;
+						goto start_interpret_switch;
+					} break;
 					case opcode::nop: break;
 					case opcode::discard: if(!stk.empty()) stk.pop(); break; //makes discard a nop if there's nothing, which makes sense for most of it's uses
 					case opcode::push:
@@ -86,7 +93,7 @@ namespace nkqc {
 							ci = stk.top().integer();
 							stk.pop();
 						}
-						stk.push(class_idx[ci]);
+						stk.push(class_idx[x]);
 					} break;
 					case opcode::class_of: {
 						auto vo = stk.top(); stk.pop();
