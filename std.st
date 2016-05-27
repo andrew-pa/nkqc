@@ -2,9 +2,9 @@
 nil subclass: Object [
 	"testing functionality"
 	class [ >-asm ldlc 0; clsof< ]
-	isKindOf: aClass [ ^ (self isMemberOf: aClass) || (self class isSubclassOf: aClass) ]
+	isKindOf: aClass [ ^ (self isMemberOf: aClass) or: (self class isSubclassOf: aClass) ]
 	isMemberOf: aClass [ ^ self class == aClass ]
-	respondsTo: aSymbol [ "TODO: implmentation in ASM or in VM?"  ]
+	"respondsTo: aSymbol [ TODO: implmentation in ASM or in VM?  ]"
 
 	"comparing"
 	== anObject [ >-asm ldlc 0; ldlc 1; cmp eql< ]
@@ -43,7 +43,7 @@ Object subclass: Magnitude [
 	<= aMagnitude [ self subclassResponsibility ]
 	> aMagnitude [ self subclassResponsibility ]
 	>= aMagnitude [ self subclassResponsibility ]
-	between: min and: max [ ^ (self >= min) && (self <= max) ]
+	between: min and: max [ ^ (self >= min) and: (self <= max) ]
 	= aObject [ self subclassResponsibility ]
 	
 	"testing"
@@ -66,9 +66,9 @@ Magnitude subclass: Character [
 	isDigit [ ^ int_value between: 10 and: 39 ]
 	isLowercase [ ^ (int_value between 97 and 122) ]
 	isUppercase [ ^ (int value between 65 and: 90) ]
-	isLetter [ ^ self isLowercase || self isUppercase ] 
-	isAlphaNumeric [ ^ self isDigit || self isLetter ]
-	isSeperator [ ^ (int_value = 32) || (int_value = 13) || (int_value = 9) || (int_value = 10) || (int_value == 12) ] "this is a bit silly too, but not as silly as the not implemented isVowel"
+	isLetter [ ^ self isLowercase or: self isUppercase ] 
+	isAlphaNumeric [ ^ self isDigit or: self isLetter ]
+	"isSeperator [ ^ (int_value = 32) || (int_value = 13) || (int_value = 9) || (int_value = 10) || (int_value == 12) ] this is a bit silly too, but not as silly as the not implemented isVowel"
 	
 	"comparing"
 	< x [ ^ int_value < (x asciiValue) ]

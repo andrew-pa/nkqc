@@ -180,7 +180,7 @@ namespace nkqc {
 			}
 			next_ws();
 			// -- msgsnd --
-			while (allow_any_msgsnd && more_token() || is_binary_op()) {
+			while (allow_any_msgsnd && (more_char() && !isterm(0,false)) || is_binary_op()) {
 				auto msg = parse_msgsnd(current_expr,allow_keyword_msgsnd);
 				if (msg) current_expr = msg; else break;
 			}

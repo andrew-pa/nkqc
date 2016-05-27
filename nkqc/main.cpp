@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 			input_file_contents += line + "\n";
 		}
 	}
-	nkqc::parser::preprocess(input_file_contents);
+	input_file_contents = nkqc::parser::preprocess(input_file_contents);
 
 	nkqc::parser::class_parser cp{ input_file_contents };
 	nkqc::vm::codegen::context cx;
