@@ -10,6 +10,7 @@ namespace nkqc {
 			struct context {
 				vector<string> strings;
 				vector<stclass> classes;
+				vector<stblock> blocks;
 
 				string_id_t add_string(const string& s) {
 					auto si = find(strings.begin(), strings.end(), s);

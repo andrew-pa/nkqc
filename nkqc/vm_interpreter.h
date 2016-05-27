@@ -41,10 +41,15 @@ namespace nkqc {
 				vector<stobject*> objects;
 				vector<string> strings;
 				vector<vector<instruction>> code_chunks;
+				vector<stblock> blocks;
 
 				stack<value> stk;
 
-				stobject *small_integer_class_obj, *class_class_obj, *method_class_obj, *array_class_obj;
+				stobject *small_integer_class_obj, 
+						*class_class_obj, 
+						*method_class_obj, 
+						*array_class_obj,
+						*block_class_obj;
 
 				string_id_t find_string(const string& str) {
 					auto s = find(strings.begin(), strings.end(), str);

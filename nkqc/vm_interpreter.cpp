@@ -5,12 +5,16 @@ namespace nkqc {
 		namespace interpreter {
 			
 
-			vmcore::vmcore(const image& i) : strings(i.strings) {
+			vmcore::vmcore(const image& i) : strings(i.strings), blocks(i.blocks) {
 				objects.push_back(nullptr); //object 0 == nullptr == nil
+				objects.push_back(nullptr); //object 1 == true
+				objects.push_back(nullptr); //object 2 == false
 				auto	class_str = find_string("Class"),
 						method_str = find_string("Method"),
 						sint_str = find_string("SmallInteger"),
-						array_str = find_string("Array");
+						array_str = find_string("Array"),
+						bool_str = find_string("Boolean"),
+						block_str = find_string("Block");
 				class_class_obj = new stobject(nullptr, 4);
 				method_class_obj = new stobject(class_class_obj, 4);
 				array_class_obj = new stobject(class_class_obj, 4);
@@ -19,6 +23,7 @@ namespace nkqc {
 					if (c.name == class_str) o = class_class_obj;
 					else if (c.name == method_str) o = method_class_obj;
 					else if (c.name == array_str) o = array_class_obj;
+					else if (c.name == block_str) o = block_class_obj;
 					//TODO: !!! sort out ClassClass stuff
 					else {
 						stobject* cls_of_this_cls = nullptr;
@@ -63,6 +68,8 @@ namespace nkqc {
 					class_idx[c.name] = o;
 					objects.push_back(o);
 				}
+				objects[1] = new stobject(class_idx[bool_str], 1);
+				objects[2] = new stobject(class_idx[bool_str], 1);
 			}
 
 			void vmcore::run(const vector<instruction>& code, map<uint8_t, value> ilc) {
@@ -139,30 +146,61 @@ namespace nkqc {
 						}
 						run(code_chunks[mo->instance_vars[2].integer()], nilc);
 					} break;
-					case opcode::math: 
+					case opcode::compare: {
+						auto a = stk.top().intval; stk.pop();
+						auto b = stk.top().intval; stk.pop();
+						bool cmp;
+						switch ((compare_opcode)x) {
+						case compare_opcode::equal: cmp = (a == b); break;
+						case compare_opcode::not_equal: cmp = (a != b); break;
+						case compare_opcode::less: cmp = (a < b); break;
+						case compare_opcode::less_equal: cmp = (a <= b); break;
+						case compare_opcode::greater: cmp = (a > b); break;
+						case compare_opcode::greater_equal: cmp = (a >= b); break;
+						}
+						stk.push(cmp ? objects[1] : objects[2]);
+					}break;
+					case opcode::math: {
+						auto a = stk.top().integer(); stk.pop();
+						auto b = stk.top().integer(); stk.pop();
 						switch ((math_opcode)(x & 0x0000ffff)) {
-						case math_opcode::iadd: {
-							auto a = stk.top().integer(); stk.pop();
-							auto b = stk.top().integer(); stk.pop();
-							stk.push(a+b);
+						case math_opcode::iadd:	stk.push(a + b); break;
+						case math_opcode::isub: stk.push(a - b); break;
+						case math_opcode::imul: stk.push(a * b); break;
+						case math_opcode::idiv: stk.push(a / b); break;
+						}
+					}break;
+					case opcode::branch: pc = x-1; break;
+					case opcode::branch_true: {
+						auto a = stk.top().object(); stk.pop();
+						if (a == objects[1]) pc = x - 1;
+					} break;
+					case opcode::branch_false: {
+						auto a = stk.top().object(); stk.pop();
+						if (a == objects[2]) pc = x - 1;
+					} break;
+					case opcode::create_block: {
+						auto b = new stobject(block_class_obj, 2);
+						b->instance_vars[0] = x; //block id
+						//obtain a closure
+						stk.push(b);
+					} break;
+					case opcode::special_value: {
+						switch ((special_values)x) {
+						case special_values::nil: stk.push(value(nullptr)); break;
+						case special_values::truev: stk.push(objects[1]); break;
+						case special_values::falsev: stk.push(objects[2]); break;
+						case special_values::num_instance_vars: { 
+							auto v = stk.top().object(); stk.pop(); 
+							stk.push(v->instance_vars.size()); 
 						} break;
-						case math_opcode::isub: {
-							auto a = stk.top().integer(); stk.pop();
-							auto b = stk.top().integer(); stk.pop();
-							stk.push(a - b);
-						} break;
-						case math_opcode::imul: {
-							auto a = stk.top().integer(); stk.pop();
-							auto b = stk.top().integer(); stk.pop();
-							stk.push(a * b);
-						} break;
-						case math_opcode::idiv: {
-							auto a = stk.top().integer(); stk.pop();
-							auto b = stk.top().integer(); stk.pop();
-							stk.push(a / b);
+						case special_values::character_object: break;
+						case special_values::hash: { 
+							auto v = stk.top().object(); stk.pop(); 
+							stk.push(hash<stobject*>()(v));
 						} break;
 						}
-						break;
+					} break;
 					}
 				}
 			}

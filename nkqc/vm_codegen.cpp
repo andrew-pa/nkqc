@@ -40,7 +40,14 @@ namespace nkqc {
 				} else {/*float, create a object(Float)*/}
 			}
 			visitf(block_expr) {
-				//TODO: impl Block codegen
+				lc->code.push_back(instruction(opcode::create_block, cx->blocks.size()));
+				expr_emitter ex(cx);
+				local_context nlc(lc->local_types["self"]);
+				for (const auto& a : xpr.argnames) {
+					nlc.alloc_local(a, 0);
+				}
+				ex.visit(nlc, xpr.body);
+				cx->blocks.push_back(stblock(xpr.argnames.size(), nlc.code));
 			}
 			visitf(symbol_expr) {
 				//TODO: impl Symbol literal codegen
@@ -180,16 +187,38 @@ namespace nkqc {
 						else if (op == "cpinst") instr.push_back(instruction(opcode::copy_instance_var, (uint32_t)exv));
 						else if (op == "sndmsg") instr.push_back(instruction(opcode::send_message, exv));
 						else if (op == "clsnmd") instr.push_back(instruction(opcode::class_for_name, exv));
+						else if (op == "br") instr.push_back(instruction(opcode::branch, exv));
+						else if (op == "brt") instr.push_back(instruction(opcode::branch_true, exv));
+						else if (op == "brf") instr.push_back(instruction(opcode::branch_false, exv));
 						else if (op == "math") {
-							uint32_t rex = 0;
+							uint32_t rex = exv;
 							switch (ex[0]) {
 							case '+': rex = (uint32_t)math_opcode::iadd; break;
 							case '-': rex = (uint32_t)math_opcode::isub; break;
 							case '*': rex = (uint32_t)math_opcode::imul; break;
 							case '/': rex = (uint32_t)math_opcode::idiv; break;
-							default: rex = exv; break;
 							}
 							instr.push_back(instruction(opcode::math, rex));
+						}
+						else if (op == "cmp") {
+							uint8_t rx = exv;
+							if(ex == "eql") rx = (uint8_t)compare_opcode::equal;
+							else if (ex == "neq") rx = (uint8_t)compare_opcode::not_equal;
+							else if (ex == "less") rx = (uint8_t)compare_opcode::less;
+							else if (ex == "lesseq") rx = (uint8_t)compare_opcode::less_equal;
+							else if (ex == "grtr") rx = (uint8_t)compare_opcode::greater;
+							else if (ex == "grtreq") rx = (uint8_t)compare_opcode::greater_equal;
+							instr.push_back(instruction(opcode::compare, rx));
+						}
+						else if (op == "spvl") {
+							uint8_t sv = exv;
+							if (ex == "nil") sv = (uint8_t)special_values::nil;
+							else if (ex == "true") sv = (uint8_t)special_values::truev;
+							else if (ex == "false") sv = (uint8_t)special_values::falsev;
+							else if (ex == "#insv") sv = (uint8_t)special_values::num_instance_vars;
+							else if (ex == "chrob") sv = (uint8_t)special_values::character_object;
+							else if (ex == "hash") sv = (uint8_t)special_values::hash;
+							instr.push_back(instruction(opcode::special_value, sv));
 						}
 						else throw runtime_error("unknown opcode: " + op);
 					}

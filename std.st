@@ -39,15 +39,61 @@ nil subclass: Object [
 
 Object subclass: Magnitude [
 	"comparing"
-	< aMagnitude [ ]
-	<= aMagnitude [ ]
-	> aMagnitude [ ]
-	>= aMagnitude [ ]
-	between: min and: max [ ^ ( ]
+	< aMagnitude [ self subclassResponsibility ]
+	<= aMagnitude [ self subclassResponsibility ]
+	> aMagnitude [ self subclassResponsibility ]
+	>= aMagnitude [ self subclassResponsibility ]
+	between: min and: max [ ^ (self >= min) && (self <= max) ]
 	= aObject [ self subclassResponsibility ]
 	
 	"testing"
-	min: aMagnitude [ ]
-	max: aMagnitude [ ]
+	min: aMagnitude [ ^ (self < aMagnitude) ifTrue: [ self ] ifFalse: [ aMagnitude ] ]
+	max: aMagnitude [ ^ (self > aMagnitude) ifTrue: [ self ] ifFalse: [ aMagnitude ] ]
+]
+
+Magnitude subclass: Character [
+	| int_value |
+
+	"instance creation"
+	!static value: anInteger [ >-asm ldlc 1; special_value characer_for_int< ] 
+	!static digitValue: anInteger [ ^ Character value: ((anInteger < 10) ifTrue: [ anInteger+30 ] ifFalse: [ anInteger+55 ]) ]  
+
+	"accessing"
+	asciiValue [ ^ int_value ]
+	digitValue [ ^ (int_value > 39) ifTrue: [ int_value-55 ] ifFalse: [ int_value-30 ] ] 
+
+	"testing"
+	isDigit [ ^ int_value between: 10 and: 39 ]
+	isLowercase [ ^ (int_value between 97 and 122) ]
+	isUppercase [ ^ (int value between 65 and: 90) ]
+	isLetter [ ^ self isLowercase || self isUppercase ] 
+	isAlphaNumeric [ ^ self isDigit || self isLetter ]
+	isSeperator [ ^ (int_value = 32) || (int_value = 13) || (int_value = 9) || (int_value = 10) || (int_value == 12) ] "this is a bit silly too, but not as silly as the not implemented isVowel"
+	
+	"comparing"
+	< x [ ^ int_value < (x asciiValue) ]
+	<= x [ ^ int_value <= (x asciiValue) ]
+	> x [ ^ int_value > (x asciiValue) ]
+	>= x [ ^ int_value >= (x asciiValue) ]
+	= x [ ^ int_value = (x asciiValue) ]
+	
+]
+	
+Magnitude subclass: Number [
+	"arithmetic"
+	+ aNumber [ self subclassResponsibility ]
+	- aNumber [ self subclassResponsibility ]
+	* aNumber [ self subclassResponsibility ]
+ 	/ aNumber [ self subclassResponsibility ]
+	// aNumber [ self subclassResponsibility ]
+	\\ aNumber [ self subclassResponsibility ]
+	abs [ self subclassResponsibility ]
+	negated [ self subclassResponsibility ]
+	quo: aNumber [ self subclassResponsibility ]
+	rem: aNumber [ self subclassResponsibility ]
+	reciprocal [ ^ 1 / self ]
+
+	to: stop do: aBlock [ >-asm < ] "requires branching"
+	to: stop by: step do: aBlock [ >-asm < ] "requires branching" 
 ]
 

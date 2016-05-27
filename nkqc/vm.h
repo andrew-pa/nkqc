@@ -32,7 +32,16 @@ namespace nkqc {
 			class_of, //
 			send_message,	//send_message:		send a object a message, object on top of stack, message sel string id in extra bytes
 							//TODO: Should send_message have a variant that takes the sel id off the stack?
-			//TODO: branching
+
+			compare,
+			branch,
+			branch_true,
+			branch_false,
+
+			special_value,
+
+			create_block, //gotta make a closure
+
 			load_instance_var,
 			move_instance_var,
 			copy_instance_var,
@@ -44,6 +53,19 @@ namespace nkqc {
 			//TODO: other operations
 			//TODO: decide wither this really needs 16bits
 			iadd, isub, imul, idiv
+		};
+
+		enum class compare_opcode : uint8_t {
+			equal, 
+			not_equal,
+			greater,
+			greater_equal,
+			less,
+			less_equal
+		};
+
+		enum class special_values : uint8_t {
+			nil, truev, falsev, num_instance_vars, character_object, hash
 		};
 
 		struct instruction {
@@ -66,6 +88,8 @@ namespace nkqc {
 				case opcode::load_local:
 				case opcode::move_local:
 				case opcode::copy_local:
+				case opcode::compare:
+				case opcode::special_value:
 					return 8;
 				case opcode::send_message:
 				case opcode::math:
@@ -74,6 +98,7 @@ namespace nkqc {
 				case opcode::move_instance_var:
 				case opcode::copy_instance_var:
 				case opcode::class_for_name:
+				case opcode::create_block:
 					return 32;
 				}
 			}
@@ -132,6 +157,12 @@ namespace nkqc {
 			stclass(string_id_t sup, string_id_t nm, vector<string_id_t> iv, map<string_id_t, stmethod> mth, flags f = flags::none) :
 				super(sup), name(nm), inst_vars(iv), methods(mth), flgs(f) {}
 		};
+		struct stblock {
+			size_t arg_count;
+			vector<instruction> code;
+			stblock(size_t ac, vector<instruction> k)
+				: arg_count(ac), code(k) {}
+		};
 
 		//TODO: image is a misnomer, should be something more like class file or something
 		//		perhaps imprint or class_image or something
@@ -139,8 +170,10 @@ namespace nkqc {
 		struct image {
 			vector<stclass> classes;
 			vector<string> strings;
+			vector<stblock> blocks;
 			
-			image(vector<stclass> cs = {}, vector<string> ss = {}) : classes(cs), strings(ss) {}
+			image(vector<stclass> cs = {}, vector<string> ss = {}, vector<stblock> bs = {})
+				: classes(cs), strings(ss), blocks(bs) {}
 			image(uint8_t* s);
 
 			uint8_t* serialize() const;
