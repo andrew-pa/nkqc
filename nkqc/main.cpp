@@ -62,13 +62,23 @@ int main(int argc, char* argv[]) {
 		cx.classes[c].methods = mth; //silly hax to ensure that the class is there while the methods are codegen'd 
 	}
 
-	nkqc::vm::image img{ cx.classes, cx.strings };
+	for (auto& c : cx.classes) {
+		if (c.name == cx.find_string("ObjectClass")) {
+			c.super = cx.find_string("Class");
+		}
+	}
+
+	/*for (const auto& c : cx.classes) {
+		cout << (c.name > 0 ? cx.strings[c.name] : "nil") << " : " << (c.super > 0 ? cx.strings[c.super] : "nil") << endl;
+	}*/
+
+	nkqc::vm::image img{ cx.classes, cx.strings, cx.blocks };
 
 	nkqc::vm::interpreter::vmcore vc(img);
 	auto instr = nkqc::vm::codegen::assemble(cx, R"(clsnmd !Program;sndmsg !run)");
 	vc.run(instr);
 	return 0;
-
+	
 
 	/*{
 		nkqc::parser::expr_parser xp;

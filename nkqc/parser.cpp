@@ -108,7 +108,7 @@ namespace nkqc {
 			else if (curr_char() == '[') {
 				next_char_ws();
 				vector<string> args;
-				if (peek_char() == ':') { //begining of first arg
+				if (curr_char() == ':') { //begining of first arg
 					while (curr_char() != '|') {
 						string a = get_token();
 						assert(a[0] == ':');
@@ -250,6 +250,7 @@ namespace nkqc {
 			} 
 			else if (!isalnum(fkom[0]) && (fkom.size() > 1 || !isalnum(fkom[1]))) { //binary operator
 				sel = fkom;
+				//for (int i = 0; i < fkom.size(); ++i) next_char();
 				next_ws();
 				args.push_back(get_token());
 				next_ws();

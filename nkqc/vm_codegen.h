@@ -40,6 +40,10 @@ namespace nkqc {
 					alloc_local("self", self_type); //ensure that self is always local#0
 				}
 
+				explicit local_context(local_context* o) 
+					: tb(o->tb), local_types(o->local_types), unused(o->unused), next(o->next)
+				{}
+
 				uint8_t alloc_local(const string& name, string_id_t type) {
 					uint8_t v = next;
 					if (unused.size() > 0 && tb.find(name) == tb.end()) {

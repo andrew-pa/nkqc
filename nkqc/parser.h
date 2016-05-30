@@ -16,6 +16,11 @@ namespace nkqc {
 			inline bool more_char() { return idx < buf.size(); }
 
 			inline void next_ws() {
+				if (curr_char() == '\"') {
+					next_char();
+					while (more_char() && curr_char() != '\"') next_char();
+					next_char();
+				}
 				while (more_char() && (isspace(curr_char()) || iscntrl(curr_char()))) next_char();
 			}
 			
@@ -73,7 +78,7 @@ namespace nkqc {
 				do {
 					n += curr_char();
 					next_char();
-				} while (more_token());
+				} while (more_char() && !isterm(0,!isSel));
 				if (isSel && curr_char() == ':') { n += ':'; next_char(); }
 				return n;
 			}

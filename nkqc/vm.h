@@ -32,6 +32,7 @@ namespace nkqc {
 			class_of, //
 			send_message,	//send_message:		send a object a message, object on top of stack, message sel string id in extra bytes
 							//TODO: Should send_message have a variant that takes the sel id off the stack?
+			invoke_block,
 
 			compare,
 			branch,
@@ -47,12 +48,13 @@ namespace nkqc {
 			copy_instance_var,
 
 			operand_from_stack,
+			error,
 		};
 
 		enum class math_opcode : uint16_t {
 			//TODO: other operations
 			//TODO: decide wither this really needs 16bits
-			iadd, isub, imul, idiv
+			iadd, isub, imul, idiv, irem, iabs
 		};
 
 		enum class compare_opcode : uint8_t {
@@ -83,6 +85,9 @@ namespace nkqc {
 				case opcode::discard:
 				case opcode::create_object:
 				case opcode::class_of:
+				case opcode::operand_from_stack:
+				case opcode::error:
+				case opcode::invoke_block:
 					return 0;
 				case opcode::push8:
 				case opcode::load_local:
@@ -99,6 +104,9 @@ namespace nkqc {
 				case opcode::copy_instance_var:
 				case opcode::class_for_name:
 				case opcode::create_block:
+				case opcode::branch:
+				case opcode::branch_true:
+				case opcode::branch_false:
 					return 32;
 				}
 			}

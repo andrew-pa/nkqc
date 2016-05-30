@@ -1,5 +1,17 @@
 
+nil subclass: Class [
+	| name super_class instance_variables methods |
+
+	isSubclassOf: aClass [ ^ (super_class == aClass) or: (super_class isSubClassOf: aClass) ]
+
+	basicNew [ >-asm ldlc 0; crobj< ]
+	new [ ^ self basicNew ]
+]
+
 nil subclass: Object [
+
+	yourself [ ^ self ]
+
 	"testing functionality"
 	class [ >-asm ldlc 0; clsof< ]
 	isKindOf: aClass [ ^ (self isMemberOf: aClass) or: (self class isSubclassOf: aClass) ]
@@ -11,24 +23,36 @@ nil subclass: Object [
 	= anObject [ ^ self == anObject ]
 	~= anObject [ ^ (self = anObject) not ]
 	~~ anObject [ ^ (self == anObject) not ]
-	hash [ >-asm ldlc 0; hashof< ] "TODO: this is a bit silly to put hashing in the VM"
+	hash [ >-asm ldlc 0; spvl hash< ] "TODO: this is a bit silly to put hashing in the VM"
 
 	"testing"
 	isNil [ ^ false ]
-	notNil [ ^ true ]	
+	notNil [ ^ true ]
+
+	"accessing"
+	basicAt: index [ >-asm ldlc 1; ldinst $stack< ]
+	basicAt: index put: anObject [ >-asm ldlc 2; ldlc 1; mvinst $stack< ]
+	basicSize [ >-asm ldlc 0; spvl ninsv< ]
+	at: index [ ^ self basicAt: index ]
+	at: index put: anObject [ ^ self basicAt: index put: anObject ]
+	size [ ^ self basicSize ]
 
 	"copying"
 	copy [ ^ self shallowCopy ]
-	shallowCopy [ >-asm ldlc 0; copy shallow< ]
-	deepCopy [ >-asm lclc 0; copy deep< ]
-	
-	"accessing"
-	basicAt: index [ >-asm ldlc 1; ldinst $stack< ] 
-	basicAt: index put: anObject [ >-asm ldlc 2; ldlc 1; mvinst $stack< ] 
-	basicSize [ >-asm ldlc 0; %%%%%%magic size instruction%%%%%%< ] 
-	at: index [ ^ self basicAt: index ] 
-	at: index put: anObject [ ^ self basicAt: index put: anObject ]
-	size [ ^ self basicSize ]
+	shallowCopy [
+		"create new instance of self, set each iv"
+		| c |
+		c := self class new.  
+		0 to: self basicSize do: [ :i | c at: i put: (self at: i) ].
+		^ c
+	]
+	deepCopy [
+		"create new instance of self, set each iv as a copy"
+		| c |
+		c := self class new.  
+		0 to: self basicSize do: [ :i | c at: i put: (self at: i) copy ].
+		^ c
+	]
 
 	"error handling"
 	doesNotUnderstand: aMessage [ self error: (aMessage selector stringValue) ]
@@ -36,6 +60,19 @@ nil subclass: Object [
 	shouldNotImplement [ self error: 'not implemented' ]
 	subclassResponsibility [ self error: 'subclass responsibility' ]
 ]
+
+Object subclass: Array [ ]
+
+Object subclass: Method [ | sel num_args code_idx | ]
+
+Object subclass: Block [ | block_id | ]
+
+Object subclass: Boolean [
+	ifTrue: aBlock [ >-asm ldlc 0; brf 4; ldlc 1; invoke_block; nop< ]
+	ifFalse: aBlock [ >-asm ldlc 0; brt 4; ldlc 1; invoke_block; nop< ]
+	ifTrue: trueBlock ifFalse: falseBlock [ >-asm ldlc 0; brf 4; ldlc 1; invoke_block; ldlc 2; invoke_block< ]
+]
+
 
 Object subclass: Magnitude [
 	"comparing"
@@ -45,7 +82,7 @@ Object subclass: Magnitude [
 	>= aMagnitude [ self subclassResponsibility ]
 	between: min and: max [ ^ (self >= min) and: (self <= max) ]
 	= aObject [ self subclassResponsibility ]
-	
+
 	"testing"
 	min: aMagnitude [ ^ (self < aMagnitude) ifTrue: [ self ] ifFalse: [ aMagnitude ] ]
 	max: aMagnitude [ ^ (self > aMagnitude) ifTrue: [ self ] ifFalse: [ aMagnitude ] ]
@@ -55,30 +92,31 @@ Magnitude subclass: Character [
 	| int_value |
 
 	"instance creation"
-	!static value: anInteger [ >-asm ldlc 1; special_value characer_for_int< ] 
-	!static digitValue: anInteger [ ^ Character value: ((anInteger < 10) ifTrue: [ anInteger+30 ] ifFalse: [ anInteger+55 ]) ]  
+	!static value: anInteger [ >-asm ldlc 1; spvl chrob< ]
+	!static digitValue: anInteger [ ^ Character value: ((anInteger < 10) ifTrue: [ anInteger+30 ] ifFalse: [ anInteger+55 ]) ]
 
 	"accessing"
 	asciiValue [ ^ int_value ]
-	digitValue [ ^ (int_value > 39) ifTrue: [ int_value-55 ] ifFalse: [ int_value-30 ] ] 
+	digitValue [ ^ (int_value > 39) ifTrue: [ int_value-55 ] ifFalse: [ int_value-30 ] ]
 
 	"testing"
 	isDigit [ ^ int_value between: 10 and: 39 ]
-	isLowercase [ ^ (int_value between 97 and 122) ]
+	isLowercase [ ^ (int_value between: 97 and: 122) ]
 	isUppercase [ ^ (int value between 65 and: 90) ]
-	isLetter [ ^ self isLowercase or: self isUppercase ] 
+
+	isLetter [ ^ self isLowercase or: self isUppercase ]
 	isAlphaNumeric [ ^ self isDigit or: self isLetter ]
 	"isSeperator [ ^ (int_value = 32) || (int_value = 13) || (int_value = 9) || (int_value = 10) || (int_value == 12) ] this is a bit silly too, but not as silly as the not implemented isVowel"
-	
+
 	"comparing"
 	< x [ ^ int_value < (x asciiValue) ]
 	<= x [ ^ int_value <= (x asciiValue) ]
 	> x [ ^ int_value > (x asciiValue) ]
 	>= x [ ^ int_value >= (x asciiValue) ]
 	= x [ ^ int_value = (x asciiValue) ]
-	
+
 ]
-	
+
 Magnitude subclass: Number [
 	"arithmetic"
 	+ aNumber [ self subclassResponsibility ]
@@ -93,7 +131,49 @@ Magnitude subclass: Number [
 	rem: aNumber [ self subclassResponsibility ]
 	reciprocal [ ^ 1 / self ]
 
-	to: stop do: aBlock [ >-asm < ] "requires branching"
-	to: stop by: step do: aBlock [ >-asm < ] "requires branching" 
+	to: stop do: aBlock [ >-asm ldlc 0; ldlc 2; invoke_block; disc; push 1; ldlc 0; sndmsg !+; cplc 0; ldlc 1; cmp less; brf 0< ] 
+	to: stop by: step do: aBlock [ >-asm ldlc 0; ldlc 2; invoke_block; disc; ldlc 3; ldlc 0; sndmsg !+; cplc 0; ldlc 1; cmp less; brf 0< ] 
 ]
 
+Number subclass: SmallInteger [
+
+	"arithmetic"
+	+ aNumber [ >-asm ldlc 0; ldlc 1; math i+< ]
+	- aNumber [ >-asm ldlc 0; ldlc 1; math i-< ]
+	* aNumber [ >-asm ldlc 0; ldlc 1; math i*< ]
+ 	/ aNumber [ self error: 'no float' ]
+	// aNumber [ >-asm ldlc 0; ldlc 1; math i/< ]
+	\\ aNumber [ >-asm ldlc 0; ldlc 1; math i%< ]
+	abs [ >-asm ldlc 0; math iabs<  ]
+	negated [ ^ 0 - self ]
+	quo: aNumber [ ^ self // aNumber ]
+	rem: aNumber [ ^ self \\ aNumber ] "I'm currently too lazy to deal with the difference here"
+	
+	"comparing"
+	< aMagnitude [ >-asm ldlc 0; ldlc 1; cmp less< ]
+	<= aMagnitude [ >-asm ldlc 0; ldlc 1; cmp lesseq< ]
+	> aMagnitude [ >-asm ldlc 0; ldlc 1; cmp grtr< ]
+	>= aMagnitude [ >-asm ldlc 0; ldlc 1; cmp grtreq< ]
+	= aObject [ ^ self == aObject ]
+]
+
+Object subclass: SillyCounter [
+	| V |
+
+	!static newWithValue: initialValue [
+		^ (self new) value: initialValue; yourself
+	] 
+	
+	incr [ V := V + 1 ]
+	value [ ^ V ]
+	value: aValue [ V := aValue ]
+]
+
+Object subclass: Program [
+	!static run [
+		| x |
+		x := SillyCounter newWithValue: 8.
+		0 to: 3 do: [ :i | x incr ].
+		^ x value 
+	]
+]

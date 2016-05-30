@@ -18,6 +18,7 @@ namespace nkqc {
 				class_class_obj = new stobject(nullptr, 4);
 				method_class_obj = new stobject(class_class_obj, 4);
 				array_class_obj = new stobject(class_class_obj, 4);
+				block_class_obj = new stobject(class_class_obj, 4); //TODO: make it so that these become subclasses of ObjectClass instead!
 				for (const auto& c : i.classes) {
 					stobject* o = nullptr;
 					if (c.name == class_str) o = class_class_obj;
@@ -48,11 +49,11 @@ namespace nkqc {
 					//}
 					//else o->instance_vars[2] = value(nullptr);
 
-					if (c.methods.size() > 0) {
+					//if (c.methods.size() > 0) {
 						auto maro = new stobject(array_class_obj, c.methods.size());
 						objects.push_back(maro);
 						o->instance_vars[3] = value(maro);
-						size_t i = 0;
+						i = 0;
 						for (const auto& m : c.methods) {
 							stobject* om = new stobject(method_class_obj, 3);
 							om->instance_vars[0] = m.first;
@@ -62,8 +63,8 @@ namespace nkqc {
 							objects.push_back(om);
 							maro->instance_vars[i++] = value(om);
 						}
-					}
-					else o->instance_vars[3] = value(nullptr);
+					//}
+					//else o->instance_vars[3] = value(nullptr);
 
 					class_idx[c.name] = o;
 					objects.push_back(o);
@@ -161,13 +162,20 @@ namespace nkqc {
 						stk.push(cmp ? objects[1] : objects[2]);
 					}break;
 					case opcode::math: {
+						auto o = (math_opcode)(x & 0x0000ffff);
 						auto a = stk.top().integer(); stk.pop();
-						auto b = stk.top().integer(); stk.pop();
-						switch ((math_opcode)(x & 0x0000ffff)) {
-						case math_opcode::iadd:	stk.push(a + b); break;
-						case math_opcode::isub: stk.push(a - b); break;
-						case math_opcode::imul: stk.push(a * b); break;
-						case math_opcode::idiv: stk.push(a / b); break;
+						if (o == math_opcode::iabs) {
+							stk.push(abs((int)a));
+						}
+						else {
+							auto b = stk.top().integer(); stk.pop();
+							switch (o) {
+							case math_opcode::iadd:	stk.push(a + b); break;
+							case math_opcode::isub: stk.push(a - b); break;
+							case math_opcode::imul: stk.push(a * b); break;
+							case math_opcode::idiv: stk.push(a / b); break;
+							case math_opcode::irem: stk.push(a % b); break;
+							}
 						}
 					}break;
 					case opcode::branch: pc = x-1; break;
@@ -182,8 +190,31 @@ namespace nkqc {
 					case opcode::create_block: {
 						auto b = new stobject(block_class_obj, 2);
 						b->instance_vars[0] = x; //block id
-						//obtain a closure
+						auto cla = (b->instance_vars[1] = new stobject(array_class_obj, locals.size())).object();
+						auto I = locals.begin();
+						for (int i = 0; I != locals.end(); ++i, ++I) {
+							cla->instance_vars[i] =
+								new stobject(array_class_obj, 2);
+							cla->instance_vars[i].object()->instance_vars[0] =
+								I->first;
+							cla->instance_vars[i].object()->instance_vars[1] =
+								I->second;
+						}
 						stk.push(b);
+					} break;
+					case opcode::invoke_block: {
+						auto bo = stk.top().object(); stk.pop();
+						assert(bo->cls == block_class_obj);
+						auto b = blocks[bo->instance_vars[0].integer()];
+						map<uint8_t, value> nilc;
+						for (auto& lclp : bo->instance_vars[1].object()->instance_vars) {
+							nilc[lclp.object()->instance_vars[0].integer()] =
+								lclp.object()->instance_vars[1];
+						}
+						for (int i = 0; i < b.arg_count; ++i) {
+							nilc[i + 1] = stk.top(); stk.pop();
+						}
+						run(b.code, nilc);
 					} break;
 					case opcode::special_value: {
 						switch ((special_values)x) {
@@ -201,6 +232,8 @@ namespace nkqc {
 						} break;
 						}
 					} break;
+					case opcode::error: throw x;
+
 					}
 				}
 			}

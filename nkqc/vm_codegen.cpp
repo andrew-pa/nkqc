@@ -42,7 +42,7 @@ namespace nkqc {
 			visitf(block_expr) {
 				lc->code.push_back(instruction(opcode::create_block, cx->blocks.size()));
 				expr_emitter ex(cx);
-				local_context nlc(lc->local_types["self"]);
+				local_context nlc(lc); //lc->local_types["self"]);
 				for (const auto& a : xpr.argnames) {
 					nlc.alloc_local(a, 0);
 				}
@@ -165,6 +165,8 @@ namespace nkqc {
 					else if (op == "disc") instr.push_back(instruction(opcode::discard));
 					else if (op == "crobj") instr.push_back(instruction(opcode::create_object));
 					else if (op == "clsof") instr.push_back(instruction(opcode::class_of));
+					else if (op == "error") instr.push_back(instruction(opcode::error));
+					else if (op == "invoke_block") instr.push_back(instruction(opcode::invoke_block));
 					else {
 						string ex = ln.substr(sp+1);
 						uint32_t exv = 0;
@@ -192,12 +194,14 @@ namespace nkqc {
 						else if (op == "brf") instr.push_back(instruction(opcode::branch_false, exv));
 						else if (op == "math") {
 							uint32_t rex = exv;
-							switch (ex[0]) {
-							case '+': rex = (uint32_t)math_opcode::iadd; break;
-							case '-': rex = (uint32_t)math_opcode::isub; break;
-							case '*': rex = (uint32_t)math_opcode::imul; break;
-							case '/': rex = (uint32_t)math_opcode::idiv; break;
-							}
+							
+							if (ex == "i+") { rex = (uint32_t)math_opcode::iadd; }
+							else if (ex == "i-") { rex = (uint32_t)math_opcode::isub; }
+							else if (ex == "i*") { rex = (uint32_t)math_opcode::imul; }
+							else if (ex == "i/") { rex = (uint32_t)math_opcode::idiv; }
+							else if (ex == "i%") { rex = (uint32_t)math_opcode::irem; }
+							else if (ex == "iabs") { rex = (uint32_t)math_opcode::iabs; }
+							
 							instr.push_back(instruction(opcode::math, rex));
 						}
 						else if (op == "cmp") {
@@ -215,7 +219,7 @@ namespace nkqc {
 							if (ex == "nil") sv = (uint8_t)special_values::nil;
 							else if (ex == "true") sv = (uint8_t)special_values::truev;
 							else if (ex == "false") sv = (uint8_t)special_values::falsev;
-							else if (ex == "#insv") sv = (uint8_t)special_values::num_instance_vars;
+							else if (ex == "ninsv") sv = (uint8_t)special_values::num_instance_vars;
 							else if (ex == "chrob") sv = (uint8_t)special_values::character_object;
 							else if (ex == "hash") sv = (uint8_t)special_values::hash;
 							instr.push_back(instruction(opcode::special_value, sv));
