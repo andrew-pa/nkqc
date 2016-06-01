@@ -15,25 +15,15 @@ using namespace std;
 //TODO: documention
 //TODO: std library
 
-int main(int argc, char* argv[]) {
-	vector<string> args; for (int i = 1; i < argc; i++) args.push_back(argv[i]);
-	
-	string input_file_contents;
-	{
-		ifstream input_file(args[0]);
-		while (input_file) {
-			string line; getline(input_file, line);
-			input_file_contents += line + "\n";
-		}
-	}
-	input_file_contents = nkqc::parser::preprocess(input_file_contents);
+nkqc::vm::codegen::context compile_file(const string& contents) {
+	auto input_file_contents = nkqc::parser::preprocess(contents);
 
 	nkqc::parser::class_parser cp{ input_file_contents };
 	nkqc::vm::codegen::context cx;
 	nkqc::vm::codegen::expr_emitter emx(&cx);
 	while (cp.more()) {
 		auto cls = cp.parse();
-		vector<nkqc::vm::string_id_t> iv; 
+		vector<nkqc::vm::string_id_t> iv;
 		for (const auto& ivn : cls->instance_vars) iv.push_back(cx.add_string(ivn));
 		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> mth;
 		map<nkqc::vm::string_id_t, nkqc::vm::stmethod> clsmth;
@@ -62,6 +52,25 @@ int main(int argc, char* argv[]) {
 		cx.classes[cc].methods = clsmth;
 		cx.classes[c].methods = mth; //silly hax to ensure that the class is there while the methods are codegen'd 
 	}
+	return cx;
+}
+
+string read_file(const string& path) {
+	string s;
+	ifstream input_file(path);
+	while (input_file) {
+		string line; getline(input_file, line);
+		s += line + "\n";
+	}
+	return s;
+}
+
+
+int main(int argc, char* argv[]) {
+	vector<string> args; for (int i = 1; i < argc; i++) args.push_back(argv[i]);
+
+	nkqc::vm::codegen::context cx =
+		compile_file(read_file(args[0]));
 
 	for (auto& c : cx.classes) {
 		if (c.name == cx.find_string("ObjectClass")) {
