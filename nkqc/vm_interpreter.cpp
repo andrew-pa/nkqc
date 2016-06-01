@@ -1,4 +1,5 @@
 #include "vm_interpreter.h"
+#include <iostream>
 
 namespace nkqc {
 	namespace vm {
@@ -265,7 +266,17 @@ namespace nkqc {
 						}
 					} break;
 					case opcode::error: throw x;
-
+					case opcode::debug_print: {
+						if (!stk.top().is_object) {
+							cout << endl;
+						}
+						else {
+							auto v = stk.top().object();
+							for (const auto& c : v->instance_vars)
+								cout.put((char)c.integer());
+						}
+						stk.pop();
+					} break;
 					}
 				}
 			}

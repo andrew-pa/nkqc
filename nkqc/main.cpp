@@ -78,6 +78,10 @@ int main(int argc, char* argv[]) {
 	nkqc::vm::interpreter::vmcore vc(img);
 	auto instr = nkqc::vm::codegen::assemble(cx, R"(clsnmd !Program;sndmsg !run)");
 	vc.run(instr);
+
+	if(!vc.stk.empty()) cout << "run returned " << vc.stk.top().intval << endl;
+
+	getchar();
 	return 0;
 	
 

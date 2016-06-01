@@ -206,6 +206,7 @@ namespace nkqc {
 						else if (op == "br") instr.push_back(instruction(opcode::branch, exv));
 						else if (op == "brt") instr.push_back(instruction(opcode::branch_true, exv));
 						else if (op == "brf") instr.push_back(instruction(opcode::branch_false, exv));
+						else if (op == "debug_print") instr.push_back(instruction(opcode::debug_print));
 						else if (op == "math") {
 							uint32_t rex = exv;
 							

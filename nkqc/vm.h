@@ -49,6 +49,8 @@ namespace nkqc {
 
 			operand_from_stack,
 			error,
+
+			debug_print
 		};
 
 		enum class math_opcode : uint16_t {
@@ -93,6 +95,7 @@ namespace nkqc {
 				case opcode::operand_from_stack:
 				case opcode::error:
 				case opcode::invoke_block:
+				case opcode::debug_print:
 					return 0;
 				case opcode::push8:
 				case opcode::load_local:

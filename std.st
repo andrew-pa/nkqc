@@ -16,14 +16,13 @@ nil subclass: Object [
 	class [ >-asm ldlc 0; clsof< ]
 	isKindOf: aClass [ ^ (self isMemberOf: aClass) or: (self class isSubclassOf: aClass) ]
 	isMemberOf: aClass [ ^ self class == aClass ]
-	"respondsTo: aSymbol [ TODO: implmentation in ASM or in VM?  ]"
 
 	"comparing"
 	== anObject [ >-asm ldlc 0; ldlc 1; cmp eql< ]
 	= anObject [ ^ self == anObject ]
 	~= anObject [ ^ (self = anObject) not ]
 	~~ anObject [ ^ (self == anObject) not ]
-	hash [ >-asm ldlc 0; spvl hash< ] "TODO: this is a bit silly to put hashing in the VM"
+	hash [ >-asm ldlc 0; spvl hash< ] 
 
 	"testing"
 	isNil [ ^ false ]
@@ -109,7 +108,6 @@ Magnitude subclass: Character [
 
 	isLetter [ ^ self isLowercase or: self isUppercase ]
 	isAlphaNumeric [ ^ self isDigit or: self isLetter ]
-	"isSeperator [ ^ (int_value = 32) || (int_value = 13) || (int_value = 9) || (int_value = 10) || (int_value == 12) ] this is a bit silly too, but not as silly as the not implemented isVowel"
 
 	"comparing"
 	< x [ ^ int_value < (x asciiValue) ]
@@ -150,7 +148,7 @@ Number subclass: SmallInteger [
 	abs [ >-asm ldlc 0; math iabs<  ]
 	negated [ ^ 0 - self ]
 	quo: aNumber [ ^ self // aNumber ]
-	rem: aNumber [ ^ self \\ aNumber ] "I'm currently too lazy to deal with the difference here"
+	rem: aNumber [ ^ self \\ aNumber ] 
 	
 	"comparing"
 	< aMagnitude [ >-asm ldlc 0; ldlc 1; cmp less< ]
@@ -177,7 +175,7 @@ Number subclass: BoxedSmallInteger [
 	abs [ >-asm ldinst 0; math iabs<  ]
 	negated [ ^ 0 - self ]
 	quo: aNumber [ ^ self // aNumber ]
-	rem: aNumber [ ^ self \\ aNumber ] "I'm currently too lazy to deal with the difference here"
+	rem: aNumber [ ^ self \\ aNumber ] 
 	
 	"comparing"
 	< aMagnitude [ >-asm ldlc 0; ldlc 1; cmp less< ]
@@ -190,7 +188,7 @@ Number subclass: BoxedSmallInteger [
 
 ]
 
-"none of this is implmented properally according to Bluebook's chapter on Collection implementation, but it's functional"
+
 Object subclass: Collection [
 	"adding"
 	add: newObject [ self subclassResponsibility ]
@@ -202,7 +200,7 @@ Object subclass: Collection [
 	removeAll: aCollection [ self subclassResponsibilty ]
 
 	"testing"
-	includes: anObject [ "this could be done in a way that is more effecent in asm (early exit) but this is more convenent + tests blocks more"
+	includes: anObject [ 
 		| found |
 		found := false.
 		self do: [ :x | found := found or: (x = anObject ) ].
@@ -236,11 +234,6 @@ Object subclass: Collection [
 		self do: [ :x | res add: (aBlock value: x) ].
 		^ res
 	]
-	
-	"these enumeration functions are silly"
-	"detect: aBlock 
-	detect: aBlock ifNone: anExceptionBlock [ ]
-	inject: thisValue into: binaryBlock [ ]"
 ]
 
 Collection subclass: Array [
@@ -266,16 +259,18 @@ Collection subclass: Symbol [
 	== aSymbol [ ^ id == aSymbol at: 0 ]
 
 	!static intern: aString [ >-asm ldlc 1; spvl internsymbol< ]
-	!static internCharacter: aCharacter [ self error: 'im lazy this is silly' ]
+	!static internCharacter: aCharacter [ self error: 'not implmented' ]
 ]
 
-Object subclass: StdStream [
-	!static putChar: aCharacter []
-	!static putString: aString [ aString do: [ :c | self putChar: c ] ]
+Object subclass: Transcript [
+	!static print: aString [ >-asm ldlc 1; debug_print< ]
+	!static newLine [ >-asm push 0; debug_print< ]
+	!static printLine: aString [ self print: aString; newLine ]
 ]
 
 Object subclass: Program [
 	!static run [
-		^ 
+		Transcript printLine: 'Hello, World!'.
+		^ 7 
 	]
 ]

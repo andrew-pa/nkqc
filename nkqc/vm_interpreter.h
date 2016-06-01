@@ -19,7 +19,7 @@ namespace nkqc {
 				value() : is_object(false), intval(0) {}
 				value(stobject* obj) : is_object(true), objectp((size_t)obj) {}
 				value(uint32_t v) : is_object(false), intval(v) {}
-				inline uint32_t integer() {
+				inline uint32_t integer() const {
 					assert(!is_object);
 					return intval;
 				}
