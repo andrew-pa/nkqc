@@ -67,7 +67,12 @@ namespace nkqc {
 		};
 
 		enum class special_values : uint8_t {
-			nil, truev, falsev, num_instance_vars, character_object, hash
+			nil, truev, falsev,
+			num_instance_vars,
+			character_object, hash,
+			internsymbol,
+			create_ary,
+			create_str,
 		};
 
 		struct instruction {

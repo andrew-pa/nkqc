@@ -56,7 +56,14 @@ namespace nkqc {
 					if (s!=strings.end()) return distance(strings.begin(), s);
 					else return -1;
 				}
-
+				string_id_t add_string(const string& s) {
+					auto si = find(strings.begin(), strings.end(), s);
+					if (si == strings.end()) {
+						strings.push_back(s);
+						return strings.size() - 1;
+					}
+					else return distance(strings.begin(), si);
+				}
 
 				vmcore() {}
 

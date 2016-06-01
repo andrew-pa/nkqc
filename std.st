@@ -61,11 +61,14 @@ nil subclass: Object [
 	subclassResponsibility [ self error: 'subclass responsibility' ]
 ]
 
-Object subclass: Array [ ]
-
 Object subclass: Method [ | sel num_args code_idx | ]
 
-Object subclass: Block [ | block_id | ]
+Object subclass: Block [ 
+	| block_id | 
+	
+	value [ >-asm ldlc 0; invoke_block< ]
+	!varadic value: arg [ >-asm ldlc 0; invoke_block< ]
+]
 
 Object subclass: Boolean [
 	ifTrue: aBlock [ >-asm ldlc 0; brf 4; ldlc 1; invoke_block; nop< ]
@@ -157,23 +160,122 @@ Number subclass: SmallInteger [
 	= aObject [ ^ self == aObject ]
 ]
 
-Object subclass: SillyCounter [
+Number subclass: BoxedSmallInteger [
 	| V |
-
-	!static newWithValue: initialValue [
-		^ (self new) value: initialValue; yourself
-	] 
+	!static newWithValue: aValue [ ^ (self new) value: aValue; yourself ]
 	
-	incr [ V := V + 1 ]
 	value [ ^ V ]
 	value: aValue [ V := aValue ]
+	
+	"arithmetic"
+	+ aNumber [ >-asm ldinst 0; ldlc 1; math i+< ]
+	- aNumber [ >-asm ldinst 0; ldlc 1; math i-< ]
+	* aNumber [ >-asm ldinst 0; ldlc 1; math i*< ]
+ 	/ aNumber [ self error: 'no float' ]
+	// aNumber [ >-asm ldinst 0; ldlc 1; math i/< ]
+	\\ aNumber [ >-asm ldinst 0; ldlc 1; math i%< ]
+	abs [ >-asm ldinst 0; math iabs<  ]
+	negated [ ^ 0 - self ]
+	quo: aNumber [ ^ self // aNumber ]
+	rem: aNumber [ ^ self \\ aNumber ] "I'm currently too lazy to deal with the difference here"
+	
+	"comparing"
+	< aMagnitude [ >-asm ldlc 0; ldlc 1; cmp less< ]
+	<= aMagnitude [ >-asm ldlc 0; ldlc 1; cmp lesseq< ]
+	> aMagnitude [ >-asm ldlc 0; ldlc 1; cmp grtr< ]
+	>= aMagnitude [ >-asm ldlc 0; ldlc 1; cmp grtreq< ]
+	= aObject [ ^ self == aObject ]
+
+	incr [ V := V + 1 ]
+
+]
+
+"none of this is implmented properally according to Bluebook's chapter on Collection implementation, but it's functional"
+Object subclass: Collection [
+	"adding"
+	add: newObject [ self subclassResponsibility ]
+	addAll: aCollection [ self subclassResponsibilty ]
+	
+	"removing"
+	remove: oldObject [ self subclassResponsibilty ]
+	remove: oldObject ifAbsent: anExceptionBlock [ self subclassResponsibilty ]
+	removeAll: aCollection [ self subclassResponsibilty ]
+
+	"testing"
+	includes: anObject [ "this could be done in a way that is more effecent in asm (early exit) but this is more convenent + tests blocks more"
+		| found |
+		found := false.
+		self do: [ :x | found := found or: (x = anObject ) ].
+		^ found
+	]
+	isEmpty [ ^ size = 0 ]
+	occurrencesOf: anObject [
+		| count |
+		count := BoxedSmallInteger new.
+		self do: [ :x | (x = anObject) ifTrue: [ count incr ] ].
+		^ count value 
+	]
+
+	"enumerating"
+	do: aBlock [ 0 to: (self size) do: [ :i | aBlock value: (self at: i) ] ]
+	select: aBlock [ 
+		| res |
+		res := self class new.
+		self do: [ :x | (aBlock value: x) ifTrue: [ res add: x ] ].
+		^ res
+	]
+	reject: aBlock [ 
+		| res |
+		res := self class new.
+		self do: [ :x | (aBlock value: x) ifFalse: [ res add: x ] ].
+		^ res
+	]
+	collect: aBlock [ 
+		| res |
+		res := self class new.
+		self do: [ :x | res add: (aBlock value: x) ].
+		^ res
+	]
+	
+	"these enumeration functions are silly"
+	"detect: aBlock 
+	detect: aBlock ifNone: anExceptionBlock [ ]
+	inject: thisValue into: binaryBlock [ ]"
+]
+
+Collection subclass: Array [
+	!static new: aLength [ >-asm ldlc 1; spvl create_ary< ]
+	
+	"adding"
+	add: newObject [ self shouldNotImplement ]
+	addAll: aCollection [ self shouldNotImplement ]
+	
+	"removing"
+	remove: oldObject [ self shouldNotImplement ]
+	remove: x ifAbsent: y [ self shouldNotImplement ]
+	removeAll: c [ self shouldNotImplement ]
+]
+
+Array subclass: String [
+	
+]
+
+Collection subclass: Symbol [
+	| id |
+	
+	== aSymbol [ ^ id == aSymbol at: 0 ]
+
+	!static intern: aString [ >-asm ldlc 1; spvl internsymbol< ]
+	!static internCharacter: aCharacter [ self error: 'im lazy this is silly' ]
+]
+
+Object subclass: StdStream [
+	!static putChar: aCharacter []
+	!static putString: aString [ aString do: [ :c | self putChar: c ] ]
 ]
 
 Object subclass: Program [
 	!static run [
-		| x |
-		x := SillyCounter newWithValue: 8.
-		0 to: 3 do: [ :i | x incr ].
-		^ x value 
+		^ 
 	]
 ]

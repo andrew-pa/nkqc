@@ -71,6 +71,7 @@ namespace nkqc {
 				}
 				objects[1] = new stobject(class_idx[bool_str], 1);
 				objects[2] = new stobject(class_idx[bool_str], 1);
+				
 			}
 
 			void vmcore::run(const vector<instruction>& code, map<uint8_t, value> ilc) {
@@ -141,9 +142,12 @@ namespace nkqc {
 							}
 							class_of_recv = class_of_recv->instance_vars[1].object(); //get super class
 						}
-						found_method:
-						for (int i = 0; i < mo->instance_vars[1].integer(); ++i) {
-							nilc[i + 1] = stk.top(); stk.pop();
+					found_method:
+						auto numarg = mo->instance_vars[1].integer();
+						if (numarg != 2147483647) {
+							for (int i = 0; i < mo->instance_vars[1].integer(); ++i) {
+								nilc[i + 1] = stk.top(); stk.pop();
+							}
 						}
 						run(code_chunks[mo->instance_vars[2].integer()], nilc);
 					} break;
@@ -226,6 +230,34 @@ namespace nkqc {
 							stk.push(v->instance_vars.size()); 
 						} break;
 						case special_values::character_object: break;
+						case special_values::internsymbol: {
+							auto iv = stk.top(); stk.pop();
+							auto o = new stobject(class_idx[find_string("Symbol")], 1);
+							if (iv.is_object) {
+								auto sv = iv.object();
+								string s;
+								for (auto c : sv->instance_vars) {
+									s.append(1, c.integer());
+								}
+								o->instance_vars[0] = add_string(s);
+							}
+							else {
+								o->instance_vars[0] = iv;
+							}
+						} break;
+						case special_values::create_ary: {
+							auto s = stk.top().integer(); stk.pop();
+							stk.push(new stobject(array_class_obj, s));
+						} break;
+						case special_values::create_str: {
+							auto s = strings[stk.top().integer()]; stk.pop();
+							auto str = new stobject(class_idx[find_string("String")], s.size());
+							int i = 0;
+							for (const auto& c : s) {
+								str->instance_vars[i++] = c;
+							}
+							stk.push(str);
+						} break;
 						case special_values::hash: { 
 							auto v = stk.top().object(); stk.pop(); 
 							stk.push(hash<stobject*>()(v));

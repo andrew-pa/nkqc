@@ -31,6 +31,7 @@ namespace nkqc {
 			}
 			visitf(string_expr) {
 				lc->code.push_back(instruction(opcode::push, (uint32_t)cx->add_string(xpr.v)));
+				lc->code.push_back(instruction(opcode::special_value, (uint8_t)special_values::create_str));
 			}
 			visitf(number_expr) {
 				if (xpr.type == 'i') {
@@ -50,13 +51,26 @@ namespace nkqc {
 				cx->blocks.push_back(stblock(xpr.argnames.size(), nlc.code));
 			}
 			visitf(symbol_expr) {
-				//TODO: impl Symbol literal codegen
+				lc->code.push_back(instruction(opcode::push, (uint32_t)cx->add_string(xpr.v)));
+				lc->code.push_back(instruction(opcode::special_value, (uint8_t)special_values::internsymbol));
 			}
 			visitf(char_expr) {
 				//TODO: impl Char literal codegen
 			}
 			visitf(array_expr) {
-				//TODO: impl Array literal codegen
+				lc->code.push_back(instruction(opcode::push, (uint32_t)xpr.vs.size()));
+				lc->code.push_back(instruction(opcode::special_value, (uint8_t)special_values::create_ary));
+				auto tmparr = lc->alloc_local("__tmp_array", 0);
+				lc->code.push_back(instruction(opcode::move_local, tmparr));
+				auto atput_msg = (uint32_t)cx->add_string("at:put:");
+				for (int i = 0; i < xpr.vs.size(); ++i) {
+					xpr.vs[i]->visit(this);
+					lc->code.push_back(instruction(opcode::push, (uint32_t)i));
+					lc->code.push_back(instruction(opcode::load_local, tmparr));
+					lc->code.push_back(instruction(opcode::send_message, atput_msg));
+				}
+				lc->code.push_back(instruction(opcode::load_local, tmparr));
+				lc->free_local(tmparr);
 			}
 			visitf(seq_expr) {
 				xpr.first->visit(this);
@@ -222,6 +236,9 @@ namespace nkqc {
 							else if (ex == "ninsv") sv = (uint8_t)special_values::num_instance_vars;
 							else if (ex == "chrob") sv = (uint8_t)special_values::character_object;
 							else if (ex == "hash") sv = (uint8_t)special_values::hash;
+							else if (ex == "internsymbol") sv = (uint8_t)special_values::internsymbol;
+							else if (ex == "create_ary") sv = (uint8_t)special_values::create_ary;
+							else if (ex == "create_str") sv = (uint8_t)special_values::create_str;
 							instr.push_back(instruction(opcode::special_value, sv));
 						}
 						else throw runtime_error("unknown opcode: " + op);

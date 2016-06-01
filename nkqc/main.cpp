@@ -52,7 +52,8 @@ int main(int argc, char* argv[]) {
 			for (const auto& a : md.args) lc.alloc_local(a, 0);
 			for (const auto& l : md.local_vars) lc.alloc_local(l, 0);
 			emx.visit(lc, md.body);
-			auto m = nkqc::vm::stmethod(md.args.size(), lc.code);
+			auto m = nkqc::vm::stmethod(
+				md.mod == nkqc::ast::top_level::method_decl::modifier::varadic ? -1 : md.args.size(), lc.code);
 			if (md.mod == nkqc::ast::top_level::method_decl::modifier::static_)
 				clsmth[cx.add_string(md.sel)] = m;
 			else

@@ -42,7 +42,7 @@ namespace nkqc {
 					next_ws();
 					args.push_back(_parse(false, false));
 				}
-				msg = { msgn, args };
+				msg = { tst == "value:" ? tst : msgn, args }; //hacky way to make sure that varadic messages of form (value: 1 value: 2 value: 3) work
 				msgt = 0;
 			}
 			else if (is_binary_op()) {
@@ -231,6 +231,7 @@ namespace nkqc {
 			if (fkom[0] == '!') {
 				auto m = fkom.substr(1, fkom.size() - 1);
 				if (m == "static") md = ast::top_level::method_decl::modifier::static_;
+				else if(m == "varadic") md = ast::top_level::method_decl::modifier::varadic;
 				next_ws();
 				fkom = get_token(true);
 			}

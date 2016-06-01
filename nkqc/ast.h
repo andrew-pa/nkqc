@@ -225,7 +225,7 @@ namespace nkqc{
 
 			struct method_decl {
 				enum class modifier {
-					none, static_
+					none, varadic, static_
 				};
 				modifier mod;
 				string sel;
