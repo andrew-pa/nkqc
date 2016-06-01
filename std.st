@@ -67,14 +67,15 @@ Object subclass: Block [
 	
 	value [ >-asm ldlc 0; invoke_block< ]
 	!varadic value: arg [ >-asm ldlc 0; invoke_block< ]
+
+	whileTrue: aBlock [ >-asm ldlc 0; invoke_block; brf 8; ldlc 1; invoke_block; disc; br 0; nop< ]
 ]
 
 Object subclass: Boolean [
 	ifTrue: aBlock [ >-asm ldlc 0; brf 4; ldlc 1; invoke_block; nop< ]
 	ifFalse: aBlock [ >-asm ldlc 0; brt 4; ldlc 1; invoke_block; nop< ]
-	ifTrue: trueBlock ifFalse: falseBlock [ >-asm ldlc 0; brf 4; ldlc 1; invoke_block; ldlc 2; invoke_block< ]
+	ifTrue: trueBlock ifFalse: falseBlock [ >-asm ldlc 0; brf 5; ldlc 1; invoke_block; br 7; ldlc 2; invoke_block; nop< ]
 ]
-
 
 Object subclass: Magnitude [
 	"comparing"
@@ -95,16 +96,16 @@ Magnitude subclass: Character [
 
 	"instance creation"
 	!static value: anInteger [ >-asm ldlc 1; spvl chrob< ]
-	!static digitValue: anInteger [ ^ Character value: ((anInteger < 10) ifTrue: [ anInteger+30 ] ifFalse: [ anInteger+55 ]) ]
+	!static digitValue: anInteger [ ^ Character value: ((anInteger < 10) ifTrue: [ anInteger + 30 ] ifFalse: [ anInteger + 55 ]) ]
 
 	"accessing"
 	asciiValue [ ^ int_value ]
-	digitValue [ ^ (int_value > 39) ifTrue: [ int_value-55 ] ifFalse: [ int_value-30 ] ]
+	digitValue [ ^ (int_value > 39) ifTrue: [ int_value - 55 ] ifFalse: [ int_value - 30 ] ]
 
 	"testing"
 	isDigit [ ^ int_value between: 10 and: 39 ]
 	isLowercase [ ^ (int_value between: 97 and: 122) ]
-	isUppercase [ ^ (int value between 65 and: 90) ]
+	isUppercase [ ^ (int value between: 65 and: 90) ]
 
 	isLetter [ ^ self isLowercase or: self isUppercase ]
 	isAlphaNumeric [ ^ self isDigit or: self isLetter ]
@@ -132,8 +133,8 @@ Magnitude subclass: Number [
 	rem: aNumber [ self subclassResponsibility ]
 	reciprocal [ ^ 1 / self ]
 
-	to: stop do: aBlock [ >-asm ldlc 0; ldlc 2; invoke_block; disc; push 1; ldlc 0; sndmsg !+; cplc 0; ldlc 1; cmp less; brf 0< ] 
-	to: stop by: step do: aBlock [ >-asm ldlc 0; ldlc 2; invoke_block; disc; ldlc 3; ldlc 0; sndmsg !+; cplc 0; ldlc 1; cmp less; brf 0< ] 
+	to: stop do: aBlock [ >-asm ldlc 0; ldlc 2; invoke_block; disc; push 1; ldlc 0; sndmsg !+; cplc 0; ldlc 1; cmp lesseq; brf 0< ] 
+	to: stop by: step do: aBlock [ >-asm ldlc 0; ldlc 2; invoke_block; disc; ldlc 3; ldlc 0; sndmsg !+; cplc 0; ldlc 1; cmp lesseq; brf 0< ] 
 ]
 
 Number subclass: SmallInteger [
@@ -156,6 +157,8 @@ Number subclass: SmallInteger [
 	> aMagnitude [ >-asm ldlc 0; ldlc 1; cmp grtr< ]
 	>= aMagnitude [ >-asm ldlc 0; ldlc 1; cmp grtreq< ]
 	= aObject [ ^ self == aObject ]
+
+	toString [ >-asm ldlc 0; spvl istr< ]
 ]
 
 Number subclass: BoxedSmallInteger [
@@ -250,8 +253,19 @@ Collection subclass: Array [
 ]
 
 Array subclass: String [
-	
+	concat: anotherString [
+		| s |
+		s := String new: self size + anotherString size.
+		"Transcript printLine: self size toString.
+		Transcript printLine: anotherString size toString.
+		Transcript printLine: s size toString."
+		0 to: (self size) do: [ :i | s at: i put: (self at: i).0 ].
+		"Transcript printLine: s."
+		0 to: (anotherString size) do: [ :i | s at: (i + self size) put: (anotherString at: i).0 ].
+		^ s
+	]
 ]
+
 
 Collection subclass: Symbol [
 	| id |
@@ -271,6 +285,9 @@ Object subclass: Transcript [
 Object subclass: Program [
 	!static run [
 		Transcript printLine: 'Hello, World!'.
-		^ 7 
+		Transcript printLine: (12345 toString).
+		Transcript printLine: ('Hello, ' concat: 'World!').
+		0 to: 8 do: [ :i | Transcript printLine: i toString ].	
+		^ 0 
 	]
 ]

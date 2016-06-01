@@ -125,7 +125,7 @@ namespace nkqc {
 					} break;
 					case opcode::send_message: {
 						auto vo = stk.top(); stk.pop();
-						map<uint8_t, value> nilc = { {0,vo} };
+						map<uint8_t, value> nilc	= { {0,vo} };
 						stobject* class_of_recv = nullptr;
 						if (!vo.is_object) {
 							class_of_recv = small_integer_class_obj;
@@ -150,6 +150,7 @@ namespace nkqc {
 								nilc[i + 1] = stk.top(); stk.pop();
 							}
 						}
+						//cout << strings[x] << endl;
 						run(code_chunks[mo->instance_vars[2].integer()], nilc);
 					} break;
 					case opcode::compare: {
@@ -216,8 +217,9 @@ namespace nkqc {
 							nilc[lclp.object()->instance_vars[0].integer()] =
 								lclp.object()->instance_vars[1];
 						}
+						auto last_lc_idx = nilc.rbegin()->first;
 						for (int i = 0; i < b.arg_count; ++i) {
-							nilc[i + 1] = stk.top(); stk.pop();
+							nilc[i + last_lc_idx + 1] = stk.top(); stk.pop();
 						}
 						run(b.code, nilc);
 					} break;
@@ -262,6 +264,15 @@ namespace nkqc {
 						case special_values::hash: { 
 							auto v = stk.top().object(); stk.pop(); 
 							stk.push(hash<stobject*>()(v));
+						} break;
+						case special_values::int_string: {
+							auto s = to_string(stk.top().integer()); stk.pop();
+							auto str = new stobject(class_idx[find_string("String")], s.size());
+							int i = 0;
+							for (const auto& c : s) {
+								str->instance_vars[i++] = c;
+							}
+							stk.push(str);
 						} break;
 						}
 					} break;

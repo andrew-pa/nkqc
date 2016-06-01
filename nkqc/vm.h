@@ -32,7 +32,7 @@ namespace nkqc {
 			class_of, //
 			send_message,	//send_message:		send a object a message, object on top of stack, message sel string id in extra bytes
 							//TODO: Should send_message have a variant that takes the sel id off the stack?
-			invoke_block,
+
 
 			compare,
 			branch,
@@ -42,6 +42,7 @@ namespace nkqc {
 			special_value,
 
 			create_block, //gotta make a closure
+			invoke_block,
 
 			load_instance_var,
 			move_instance_var,
@@ -75,6 +76,7 @@ namespace nkqc {
 			internsymbol,
 			create_ary,
 			create_str,
+			int_string,
 		};
 
 		struct instruction {

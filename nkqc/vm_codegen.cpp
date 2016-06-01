@@ -13,20 +13,29 @@ namespace nkqc {
 					lc->code.push_back(instruction(opcode::load_local, lci->second));
 				}
 				else {
+					if (xpr.v == "true") {
+						lc->code.push_back(instruction(opcode::special_value, (uint8_t)special_values::truev));
+						return;
+					} else if(xpr.v == "false") {
+						lc->code.push_back(instruction(opcode::special_value, (uint8_t)special_values::falsev));
+						return;
+					} else if (xpr.v == "nil") {
+						lc->code.push_back(instruction(opcode::special_value, (uint8_t)special_values::nil));
+						return;
+					}
 					auto si = cx->find_string(xpr.v);
 					for (const auto& c : cx->classes) {
-						if (si == c.name) {
-							lc->code.push_back(instruction(opcode::class_for_name, (uint32_t)si));
-							break;
-						}
-						else if (lc->local_types["self"] == c.name) {
+						 if (lc->local_types["self"] == c.name) {
 							auto ii = find(c.inst_vars.begin(), c.inst_vars.end(), si);
 							if (ii != c.inst_vars.end()) {
 								lc->code.push_back(instruction(opcode::load_instance_var, (uint32_t)distance(c.inst_vars.begin(),ii)));
-								break;
+								return;
 							}
 						}
 					}
+					//otherwise must be a class
+					if (si == -1) si = cx->add_string(xpr.v); //insure that first mentions work anyways
+					lc->code.push_back(instruction(opcode::class_for_name, (uint32_t)si));
 				}
 			}
 			visitf(string_expr) {
@@ -240,6 +249,7 @@ namespace nkqc {
 							else if (ex == "internsymbol") sv = (uint8_t)special_values::internsymbol;
 							else if (ex == "create_ary") sv = (uint8_t)special_values::create_ary;
 							else if (ex == "create_str") sv = (uint8_t)special_values::create_str;
+							else if (ex == "istr") sv = (uint8_t)special_values::int_string;
 							instr.push_back(instruction(opcode::special_value, sv));
 						}
 						else throw runtime_error("unknown opcode: " + op);
