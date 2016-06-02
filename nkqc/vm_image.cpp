@@ -1,4 +1,5 @@
 #include "vm.h"
+#include <memory.h>
 
 #define store(P, V) { auto v = V; *((decltype(v)*)P) = v; P += sizeof(v); }
 

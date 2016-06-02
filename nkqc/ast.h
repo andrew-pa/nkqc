@@ -2,6 +2,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <iostream>
 using namespace std;
 
 #define for_all_ast(X) \

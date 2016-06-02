@@ -44,7 +44,7 @@ namespace nkqc {
 			}
 			visitf(number_expr) {
 				if (xpr.type == 'i') {
-					if (abs(xpr.iv) < INT_MAX) {
+					if (abs(xpr.iv) < numeric_limits<uint32_t>::max()) {
 						lc->code.push_back(instruction(opcode::push, (uint32_t)xpr.iv));
 					} else {/*64bit number, create a object (Integer64)*/}
 				} else {/*float, create a object(Float)*/}
