@@ -94,12 +94,12 @@ namespace nkqc {
 		class expr_parser : public parser {
 		public:
 
-			shared_ptr<ast::expr> parse(const string& s) {
+			inline shared_ptr<ast::expr> parse(const string& s) {
 				buf = s;
 				idx = 0;
 				return _parse(true,true);
 			}
-			shared_ptr<ast::expr> parse(parser& p) {
+			inline shared_ptr<ast::expr> parse(parser& p) {
 				buf = p.buf;
 				idx = p.idx;
 				auto rv = _parse(true, true);
@@ -120,7 +120,7 @@ namespace nkqc {
 		public:
 			class_parser(const string& s) { buf = s; idx = 0; }
 
-			shared_ptr<ast::top_level::class_decl> parse() {
+			inline shared_ptr<ast::top_level::class_decl> parse() {
 				if (!more())return nullptr;
 				return _parse();
 			}

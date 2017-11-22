@@ -50,7 +50,7 @@ namespace nkqc {
 				} else {/*float, create a object(Float)*/}
 			}
 			visitf(block_expr) {
-				lc->code.push_back(instruction(opcode::create_block, cx->blocks.size()));
+				lc->code.push_back(instruction(opcode::create_block, (uint32_t)cx->blocks.size()));
 				expr_emitter ex(cx);
 				local_context nlc(lc); //lc->local_types["self"]);
 				for (const auto& a : xpr.argnames) {

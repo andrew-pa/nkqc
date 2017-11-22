@@ -1,4 +1,5 @@
 #include "vm.h"
+#include <string>
 #include <memory.h>
 
 #define store(P, V) { auto v = V; *((decltype(v)*)P) = v; P += sizeof(v); }
@@ -42,7 +43,7 @@ namespace nkqc {
 				char* c = new char[len];
 				memcpy(c, dp, len);
 				dp += len;
-				strings.push_back(string(c));
+				strings.push_back(string(c, c+len));
 			}
 			for (size_t i = 0; i < hp->num_blocks; ++i) {
 				size_t arg_count = *((size_t*)dp);		dp += sizeof(size_t);

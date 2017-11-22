@@ -87,7 +87,7 @@ namespace nkqc {
 			instruction(opcode op_, uint8_t ex) : op(op_), extra(ex) { assert(extra_size() == 8); }
 			instruction(opcode op_, uint32_t ex) : op(op_), extra(ex) { assert(extra_size() == 32); }
 
-			uint8_t extra_size() const {
+			inline uint8_t extra_size() const {
 				switch (op)
 				{
 				case opcode::nop:
