@@ -66,7 +66,7 @@ string read_file(const string& path) {
 }
 
 
-int main(int argc, char* argv[]) {
+int amain(int argc, char* argv[]) {
 	vector<string> args; for (int i = 1; i < argc; i++) args.push_back(argv[i]);
 
 	nkqc::vm::codegen::context cx =

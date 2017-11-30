@@ -32,10 +32,7 @@ namespace nkqc {
 			}
 			inline bool isterm(int off = 0, bool bop = true) {
 				char c = peek_char(off);
-				return c == '\0' || isspace(c)
-					|| c == '(' || c == ')'
-					|| c == '[' || c == ']' || c == '|'
-					|| c == ';' || c == '.'
+				return istermc(c)
 					|| (bop && is_binary_op(off));
 			}
 

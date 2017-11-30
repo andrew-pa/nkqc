@@ -67,7 +67,7 @@ namespace nkqc {
 
 			vector<instruction> assemble(context& c, const string& src);
 
-			class expr_emitter : protected ast::expr_visiter {
+			class expr_emitter : protected ast::expr_visiter<> {
 #define visit_f_decl(T) void visit(const ast:: T& x) override;
 				for_all_ast(visit_f_decl)
 #undef visit_f_decl
