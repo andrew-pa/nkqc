@@ -150,6 +150,7 @@ namespace nkqc {
 			else if (curr_char() == '#') {
 				next_char();
 				if (curr_char() == '\'') {
+					next_char();
 					current_expr = make_shared<symbol_expr>(parse_string_lit());
 				}
 				else if (curr_char() == '(') {
@@ -180,7 +181,7 @@ namespace nkqc {
 			}
 			next_ws();
 			// -- msgsnd --
-			while (allow_any_msgsnd && (more_char() && !isterm(0,false)) || is_binary_op()) {
+			while (allow_any_msgsnd && ((more_char() && !isterm(0,false)) || is_binary_op())) {
 				auto msg = parse_msgsnd(current_expr,allow_keyword_msgsnd);
 				if (msg) current_expr = msg; else break;
 			}
