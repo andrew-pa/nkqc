@@ -1,0 +1,11 @@
+
+fn exitProcessWithCode: {code i32} #(#'ExitProcess@4' >-()<)
+fn emitBeepOfFrequency: {freq i32} forTime: {duration i32} #(#'Beep@8' >-i32<)
+
+fn main [
+	(#G emitBeepOfFrequency: 440 forTime: 200).
+	(#G exitProcessWithCode: 0).
+	^ 0
+]
+	
+	

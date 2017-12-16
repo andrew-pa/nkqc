@@ -1,0 +1,29 @@
+fn putChar: {c i32} inStream: {f *u32} #(#putc >-i32<) 
+fn stdStream: {index i32} #(#__acrt_iob_func >-*u32<)
+
+fn twentyOne [
+    ^ 21
+]
+
+fn id: {x i32} [
+    ^ x
+]
+
+fn mul2: {x i32} [
+    ^ x * 2
+]
+
+fn square: {x i32} [
+	^ x * x
+]
+
+fn mul: {x i32} and: {y i32} add: {z i32} [
+	sum := x + y.
+	^ sum * z
+]
+
+fn main [
+	#G putChar: 65 inStream: (#G stdStream: 1).
+	x := #G mul: (#G mul2: 7) and: 3 add: 1.
+	^ x + (#G square: 2)
+]
