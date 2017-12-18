@@ -155,6 +155,7 @@
   <ItemGroup>
     <ClInclude Include="ast.h" />
     <ClInclude Include="parser.h" />
+    <ClInclude Include="types.h" />
     <ClInclude Include="vm.h" />
     <ClInclude Include="vm_codegen.h" />
     <ClInclude Include="vm_interpreter.h" />

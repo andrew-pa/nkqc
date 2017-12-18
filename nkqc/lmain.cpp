@@ -77,195 +77,9 @@ struct result {
 	result(const E& e) : type(1), error(e) {}
 };
 
+#include "types.h"
+
 namespace nkqc {
-	struct type_id {
-		virtual llvm::Type* llvm_type(llvm::LLVMContext&) = 0;
-		virtual bool equals(shared_ptr<type_id> o) = 0; // welcome to Java-land
-		virtual ~type_id() {}
-	};
-	/*struct tuple_type : public type_id {
-		vector<shared_ptr<type_id>> types;
-
-		tuple_type(initializer_list<shared_ptr<type_id>> t) : types(t.begin(), t.end()) {}
-		tuple_type(const vector<shared_ptr<type_id>>& t) : types(t) {}
-		
-		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) {
-			return types.size() == 0 ? llvm::Type::getVoidTy() : llvm::StructType::create(types);
-		}
-
-	};*/
-	struct unit_type : public type_id {
-		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) override {
-			return llvm::Type::getVoidTy(c);
-		}
-		virtual bool equals(shared_ptr<type_id> o) override {
-			return dynamic_pointer_cast<unit_type>(o) != nullptr;
-		}
-	};
-	struct integer_type : public type_id {
-		uint8_t bitwidth;
-		bool signed_;
-
-		integer_type(bool s, uint8_t bw)
-			: signed_(s), bitwidth(bw) {}
-
-		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) {
-			return llvm::Type::getIntNTy(c, bitwidth);
-		}
-
-		virtual bool equals(shared_ptr<type_id> o) override {
-			auto p = dynamic_pointer_cast<integer_type>(o);
-			return p != nullptr && p->bitwidth == bitwidth && p->signed_ == signed_;
-		}
-	};
-	struct plain_type : public type_id {
-		string name;
-		plain_type(const string& n) : name(n) {}
-
-		virtual llvm::Type* llvm_type(llvm::LLVMContext&) override {
-			return nullptr;
-		}
-		virtual bool equals(shared_ptr<type_id> o) override {
-			auto p = dynamic_pointer_cast<plain_type>(o);
-			return p != nullptr && p->name == name;
-		}
-	};
-	struct ptr_type : public type_id {
-		shared_ptr<type_id> inner;
-		ptr_type(shared_ptr<type_id> inner) : inner(inner) {}
-		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) override {
-			return inner->llvm_type(c)->getPointerTo();
-		}
-
-		virtual bool equals(shared_ptr<type_id> o) override {
-			auto p = dynamic_pointer_cast<ptr_type>(o);
-			return p != nullptr && inner->equals(p->inner);
-		}
-	};
-	struct array_type : public type_id {
-		size_t count;
-		shared_ptr<type_id> element;
-		array_type(size_t count, shared_ptr<type_id> e) : element(e), count(count) {}
-
-		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) override {
-			return llvm::ArrayType::get(element->llvm_type(c), count);
-		}
-
-		virtual bool equals(shared_ptr<type_id> o) override {
-			auto p = dynamic_pointer_cast<array_type>(o);
-			return p != nullptr && count == p->count && element->equals(p->element);
-		}
-	};
-
-	namespace parser {
-		struct parse_error {
-			size_t line, col;
-			size_t reason;
-		};
-
-		struct decl {
-			virtual ~decl() {}
-		};
-
-		struct fn_decl {
-			shared_ptr<type_id> receiver;
-			string selector;
-			vector<pair<string, shared_ptr<type_id>>> args;
-			shared_ptr<nkqc::ast::expr> body;
-
-			fn_decl(const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
-				: selector(sel), args(args), body(body) {}
-			fn_decl(shared_ptr<type_id> rev, const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
-				: receiver(rev), selector(sel), args(args), body(body) {}
-		};
-
-		struct file_parser : public nkqc::parser::expr_parser {
-			shared_ptr<type_id> parse_type() {
-				switch (curr_char()) {
-				case '*':
-					next_char();
-					return make_shared<ptr_type>(parse_type());
-				case '[': {
-					next_char();
-					string numv;
-					do {
-						numv += curr_char();
-						next_char();
-					} while (more_token() && isdigit(curr_char()));
-					assert(curr_char() == ']'); next_char();
-					return make_shared<array_type>(atoll(numv.c_str()), parse_type());
-				}
-				case 'u':
-				case 'i': {
-					char type = curr_char();
-					next_char();
-					string numv;
-					do {
-						numv += curr_char();
-						next_char();
-					} while (more_token() && isdigit(curr_char()));
-					return make_shared<integer_type>(type == 'i', atoi(numv.c_str()));
-				}
-				case '(': {
-					next_char(); assert(curr_char() == ')');
-					next_char();
-					return make_shared<unit_type>();
-				}
-				default:
-					return make_shared<plain_type>(get_token());
-				}
-			}
-
-			tuple<string, vector<pair<string, shared_ptr<type_id>>>> parse_sel() {
-				string sel; vector<pair<string, shared_ptr<type_id>>> args;
-				string t = peek_token(true);
-				assert(t.size() > 0);
-				if (t[t.size() - 1] == ':') {
-					while (more_token()) {
-						t = get_token(true);
-						assert(t[t.size() - 1] == ':');
-						sel += t;
-						next_ws();
-						assert(curr_char() == '{'); next_char();
-						next_ws();
-						auto n = get_token();
-						next_ws();
-						args.push_back({ n, parse_type() });
-						next_ws();
-						assert(curr_char() == '}'); next_char();
-						next_ws();
-					}
-				}
-				else {
-					sel = get_token();
-				}
-				return { sel, args };
-			}
-
-			void parse_all(const string& s, function<void(const fn_decl&)> FN) {
-				buf = s; idx = 0;
-				while (more()) {
-					next_ws();
-					auto t = get_token();
-					next_ws();
-					if (t == "fn") {
-						//type_id pot_recv = parse_type();
-						string sel; vector<pair<string,shared_ptr<type_id>>> args;
-						tie(sel, args) = parse_sel();
-						next_ws();
-						FN(fn_decl(sel, args, _parse(false, false, false)));
-					}
-				}
-				return;
-			}
-
-			shared_ptr<type_id> parse_type(const string& s) {
-				buf = s; idx = 0;
-				return parse_type();
-			}
-		};
-	}
-
 	namespace codegen {
 		struct code_generator {
 			shared_ptr<llvm::Module> mod;
@@ -303,23 +117,21 @@ namespace nkqc {
 				}
 			};
 
-			struct integer_cast_op : public function {
-				integer_cast_op() {}
+			struct cast_op : public function {
+				cast_op() {}
 
 				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t,const vector<shared_ptr<type_id>>& args_t) override {
-					g->s.push(llvm::BinaryOperator::Create(op, rcv, args[0], "", g->bb));
+					if (rcv != nullptr) throw;
+					g->s.push(args_t[0]->cast_to(g->gen->mod->getContext(), rcv_t, args[0], g->bb));
 				}
 
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override {
-					if (args.size() != 1) return false;
-					auto rcv_int = dynamic_pointer_cast<integer_type>(rcv);
-					auto arg_int = dynamic_pointer_cast<integer_type>(args[0]);
-					return rcv_int != nullptr && arg_int != nullptr;
+					return args.size() == 1 && args[0]->can_cast_to(rcv);
 				}
 
 				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
 					if (!can_apply(rcv, args)) throw;
-					return args[0];
+					return rcv;
 				}
 			};
 			
@@ -393,6 +205,7 @@ namespace nkqc {
 				functions["*"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Mul));
 				functions["-"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Sub));
 				functions["/"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::SDiv));
+				functions["~"].push_back(make_shared<cast_op>());
 			}
 
 
@@ -446,7 +259,14 @@ namespace nkqc {
 				virtual void visit(const nkqc::ast::unary_msgsnd &x) {
 				}
 				virtual void visit(const nkqc::ast::binary_msgsnd &x) {
-					auto rcv = gen->type_of(x.rcv, cx), rhs = gen->type_of(x.rhs, cx);
+					auto tx = dynamic_pointer_cast<parser::type_expr>(x.rcv);
+					shared_ptr<type_id> rhs = gen->type_of(x.rhs, cx), rcv = nullptr;
+					if (tx != nullptr) {
+						rcv = tx->type;
+					}
+					else {
+						rcv = gen->type_of(x.rcv, cx);
+					}
 					auto sf = gen->lookup_function(x.op, rcv, { rhs });
 					if (sf != nullptr)
 						s.push(sf->return_type(gen, rcv, { rhs }));
@@ -541,17 +361,30 @@ namespace nkqc {
 				virtual void visit(const nkqc::ast::unary_msgsnd &x) override {
 				}
 				virtual void visit(const nkqc::ast::binary_msgsnd &x) override {
-					auto lhs_type = gen->type_of(x.rcv, cx), rhs_type = gen->type_of(x.rhs, cx);
-					auto f = gen->lookup_function(x.op, lhs_type, { rhs_type });
-					if (f != nullptr) {
-						//	apply function
-						x.rcv->visit(this);
-						auto rcv = s.top(); s.pop();
-						x.rhs->visit(this);
-						auto rhs = s.top(); s.pop();
-						f->apply(this, rcv, { rhs });
+					auto tx = dynamic_pointer_cast<parser::type_expr>(x.rcv);
+					auto rhs_type = gen->type_of(x.rhs, cx);
+					if (tx != nullptr) {
+						auto f = gen->lookup_function(x.op, tx->type, { rhs_type });
+						if (f != nullptr) {
+							x.rhs->visit(this);
+							auto rhs = s.top();  s.pop();
+							f->apply(this, nullptr, {rhs}, tx->type, { rhs_type });
+						}
+						else throw;
 					} else {
-						throw;
+						auto lhs_type = gen->type_of(x.rcv, cx);
+						auto f = gen->lookup_function(x.op, lhs_type, { rhs_type });
+						if (f != nullptr) {
+							//	apply function
+							x.rcv->visit(this);
+							auto rcv = s.top(); s.pop();
+							x.rhs->visit(this);
+							auto rhs = s.top(); s.pop();
+							f->apply(this, rcv, { rhs }, lhs_type, { rhs_type });
+						}
+						else {
+							throw;
+						}
 					}
 				}
 				virtual void visit(const nkqc::ast::keyword_msgsnd &x) override {
@@ -572,7 +405,7 @@ namespace nkqc {
 					}
 					auto f = gen->lookup_function(x.msgname, rcv_t, arg_t);
 					if (f != nullptr) {
-						f->apply(this, rcv, args);
+						f->apply(this, rcv, args, rcv_t, arg_t);
 					}
 					else throw;
 				}
@@ -601,14 +434,14 @@ namespace nkqc {
 					for (const auto& arg : fn.args) {
 						params.push_back(type_of(arg.second));
 					}
-					parser::file_parser fp;
-					auto ret_t = fp.parse_type(dynamic_pointer_cast<ast::tag_expr>(cfn->vs[1])->v);
+					auto ret_t = dynamic_pointer_cast<parser::type_expr>(cfn->vs[1])->type;
 					auto fn_t = llvm::FunctionType::get(ret_t->llvm_type(mod->getContext()), params, false);
 					auto name = dynamic_pointer_cast<ast::symbol_expr>(cfn->vs[0])->v;
-					auto F = //llvm::cast<llvm::Function>(
-						//mod->getOrInsertFunction(, fn_t));
-						llvm::Function::Create(fn_t, llvm::Function::ExternalLinkage, name, mod.get());
+					auto F = llvm::cast<llvm::Function>(mod->getOrInsertFunction(name, fn_t));
+					F->setLinkage(llvm::Function::LinkageTypes::ExternalLinkage);
+					//	llvm::Function::Create(fn_t, llvm::Function::ExternalLinkage, name, mod.get());
 					functions[fn.selector].push_back(make_shared<extern_fn>(F, fn.args, ret_t));
+					return F;
 				}
 				else {
 					auto F = llvm::cast<llvm::Function>(mod->getOrInsertFunction(fn.selector, type_of(fn, &cx)));
@@ -641,9 +474,10 @@ int main(int argc, char* argv[]) {
 		s += line + "\n";
 	}
 
-	auto p = nkqc::parser::file_parser{};
 	llvm::LLVMContext ctx;
 	auto mod = make_shared<llvm::Module>(args[0], ctx);
+	{
+	auto p = nkqc::parser::file_parser{};
 	auto cg = nkqc::codegen::code_generator{mod};
 
 	p.parse_all(s, [&] (const nkqc::parser::fn_decl& f) {
@@ -653,6 +487,7 @@ int main(int argc, char* argv[]) {
 		cout << endl;
 	});
 	llvm::outs() << *mod << "\n";
+	}
 	//getchar();
 
 	llvm::InitializeAllTargetInfos();

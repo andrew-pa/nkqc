@@ -1,5 +1,6 @@
 #pragma once
 #include "ast.h"
+#include "types.h"
 #include <cassert>
 
 namespace nkqc {
@@ -86,6 +87,22 @@ namespace nkqc {
 				idx = oi;
 				return n;
 			}
+			
+			shared_ptr<type_id> parse_type();
+		};
+
+		struct type_expr : public ast::expr {
+			shared_ptr<type_id> type;
+
+			type_expr(shared_ptr<type_id> t) : type(t) {}
+
+			void print(ostream& os) const override {
+				os << "{";
+				type->print(os);
+				os << "}";
+			}
+
+			void visit(ast::expr_visiter<>* V) const override { throw; }
 		};
 
 		class expr_parser : public parser {
@@ -128,5 +145,72 @@ namespace nkqc {
 		};
 
 		string preprocess(const string& s);
+
+		struct decl {
+			virtual ~decl() {}
+		};
+
+		struct fn_decl {
+			shared_ptr<type_id> receiver;
+			string selector;
+			vector<pair<string, shared_ptr<type_id>>> args;
+			shared_ptr<nkqc::ast::expr> body;
+
+			fn_decl(const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
+				: selector(sel), args(args), body(body) {}
+			fn_decl(shared_ptr<type_id> rev, const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
+				: receiver(rev), selector(sel), args(args), body(body) {}
+		};
+
+		struct file_parser : public expr_parser {
+
+			tuple<string, vector<pair<string, shared_ptr<type_id>>>> parse_sel() {
+				string sel; vector<pair<string, shared_ptr<type_id>>> args;
+				string t = peek_token(true);
+				assert(t.size() > 0);
+				if (t[t.size() - 1] == ':') {
+					while (more_token()) {
+						t = get_token(true);
+						assert(t[t.size() - 1] == ':');
+						sel += t;
+						next_ws();
+						assert(curr_char() == '{'); next_char();
+						next_ws();
+						auto n = get_token();
+						next_ws();
+						args.push_back({ n, expr_parser::parse_type() });
+						next_ws();
+						assert(curr_char() == '}'); next_char();
+						next_ws();
+					}
+				}
+				else {
+					sel = get_token();
+				}
+				return { sel, args };
+			}
+
+			void parse_all(const string& s, function<void(const fn_decl&)> FN) {
+				buf = s; idx = 0;
+				while (more()) {
+					next_ws();
+					auto t = get_token();
+					next_ws();
+					if (t == "fn") {
+						//type_id pot_recv = parse_type();
+						string sel; vector<pair<string,shared_ptr<type_id>>> args;
+						tie(sel, args) = parse_sel();
+						next_ws();
+						FN(fn_decl(sel, args, _parse(false, false, false)));
+					}
+				}
+				return;
+			}
+
+			shared_ptr<type_id> parse_type(const string& s) {
+				buf = s; idx = 0;
+				return expr_parser::parse_type();
+			}
+		};
 	}
 }

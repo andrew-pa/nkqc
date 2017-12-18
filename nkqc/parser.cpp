@@ -4,6 +4,44 @@ namespace nkqc {
 	using namespace ast;
 
 	namespace parser {
+
+		shared_ptr<type_id> parser::parse_type() {
+			switch (curr_char()) {
+			case '*':
+				next_char();
+				return make_shared<ptr_type>(parse_type());
+			case '[': {
+				next_char();
+				string numv;
+				do {
+					numv += curr_char();
+					next_char();
+				} while (more_token() && isdigit(curr_char()));
+				assert(curr_char() == ']'); next_char();
+				return make_shared<array_type>(atoll(numv.c_str()), parse_type());
+			}
+			case 'u':
+			case 'i': {
+				char type = curr_char();
+				next_char();
+				string numv;
+				do {
+					numv += curr_char();
+					next_char();
+				} while (more_token() && isdigit(curr_char()));
+				return make_shared<integer_type>(type == 'i', atoi(numv.c_str()));
+			}
+			case '(': {
+				next_char(); assert(curr_char() == ')');
+				next_char();
+				return make_shared<unit_type>();
+			}
+			default:
+				return make_shared<plain_type>(get_token());
+			}
+		}
+
+
 		//TODO: fix this so that it is std compliant
 		shared_ptr<ast::number_expr> expr_parser::parse_number()
 		{
@@ -169,6 +207,12 @@ namespace nkqc {
 					current_expr = make_shared<symbol_expr>(get_token());
 				}
 			}
+			else if (curr_char() == '{') {
+				next_char();
+				current_expr = make_shared<type_expr>(parse_type());
+				assert(curr_char() == '}');
+				next_char();
+			}
 			// -- id --
 			else {
 				auto idx = make_shared<id_expr>(get_token());
@@ -194,7 +238,7 @@ namespace nkqc {
 		}
 		
 
-
+		
 		shared_ptr<ast::top_level::class_decl> class_parser::_parse() {
 			next_ws();
 			auto super_class = get_token();
@@ -295,7 +339,7 @@ namespace nkqc {
 			}
 			return fs + s.substr(lfqp);
 		}
-	}		
+}
 
 
 }
