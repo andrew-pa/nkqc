@@ -36,8 +36,11 @@ namespace nkqc {
 				next_char();
 				return make_shared<unit_type>();
 			}
-			default:
+			default: {
+				auto tk = get_token();
+				if (tk == "bool") return make_shared<bool_type>();
 				return make_shared<plain_type>(get_token());
+			}
 			}
 		}
 

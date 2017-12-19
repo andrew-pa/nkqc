@@ -10,6 +10,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Constants.h>
@@ -101,7 +102,7 @@ namespace nkqc {
 				binary_llvm_op(llvm::BinaryOperator::BinaryOps op) : op(op) {}
 
 				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override {
-					g->s.push(llvm::BinaryOperator::Create(op, rcv, args[0], "", g->bb));
+					g->s.push(g->irb.CreateBinOp(op, rcv, args[0]));
 				}
 
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override {
@@ -122,7 +123,7 @@ namespace nkqc {
 
 				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t,const vector<shared_ptr<type_id>>& args_t) override {
 					if (rcv != nullptr) throw;
-					g->s.push(args_t[0]->cast_to(g->gen->mod->getContext(), rcv_t, args[0], g->bb));
+					g->s.push(args_t[0]->cast_to(g->gen->mod->getContext(), rcv_t, args[0], g->irb));
 				}
 
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override {
@@ -145,7 +146,7 @@ namespace nkqc {
 
 				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override {
 					if (rcv != nullptr) throw;
-					g->s.push(llvm::CallInst::Create(f, args, "", g->bb));
+					g->s.push(g->irb.CreateCall(f, args));
 				}
 
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& targs) override {
@@ -171,7 +172,7 @@ namespace nkqc {
 
 				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override {
 					if (rcv != nullptr) throw;
-					g->s.push(llvm::CallInst::Create(f, args, "", g->bb));
+					g->s.push(g->irb.CreateCall(f, args));
 				}
 
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override {
@@ -324,16 +325,18 @@ namespace nkqc {
 			struct expr_generator : public ast::expr_visiter<> {
 				code_generator* gen;
 				llvm::BasicBlock* bb;
+				llvm::IRBuilder<> irb;
 				expr_context* cx;
 				stack<llvm::Value*> s;
 
 				expr_generator(code_generator* gen, llvm::BasicBlock* bb, expr_context* cx)
-					: gen(gen), bb(bb), cx(cx) {}
+					: gen(gen), bb(bb), cx(cx), irb(bb) {}
 
 				virtual void visit(const nkqc::ast::id_expr &x) override {
-					s.push(cx->at(x.v).first);
+					s.push(irb.CreateLoad(cx->at(x.v).first));
 				}
 				virtual void visit(const nkqc::ast::string_expr &x) override {
+					s.push(llvm::ConstantDataArray::get(gen->mod->getContext(), llvm::ArrayRef<uint8_t>((uint8_t*)x.v.c_str(), x.v.size())));
 				}
 				virtual void visit(const nkqc::ast::number_expr &x) override {
 					s.push(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->mod->getContext()), x.iv));
@@ -356,7 +359,7 @@ namespace nkqc {
 				virtual void visit(const nkqc::ast::return_expr &x) override {
 					x.val->visit(this);
 					auto v = s.top(); s.pop();
-					s.push(llvm::ReturnInst::Create(gen->mod->getContext(), v, bb));
+					s.push(irb.CreateRet(v));
 				}
 				virtual void visit(const nkqc::ast::unary_msgsnd &x) override {
 				}
@@ -413,8 +416,10 @@ namespace nkqc {
 				}
 				virtual void visit(const nkqc::ast::assignment_expr &x) override {
 					x.val->visit(this);
-					cx->insert_or_assign(x.name, pair<llvm::Value*, shared_ptr<type_id>>{ s.top(), gen->type_of(x.val, cx) });
-					s.pop();
+					auto vt = gen->type_of(x.val, cx);
+					auto alc = irb.CreateAlloca(vt->llvm_type(irb.getContext()));
+					irb.CreateStore(s.top(), alc); s.pop();
+					cx->insert_or_assign(x.name, pair<llvm::Value*, shared_ptr<type_id>>{ alc, vt });
 				}
 			};
 
@@ -473,6 +478,7 @@ int main(int argc, char* argv[]) {
 		string line; getline(input_file, line);
 		s += line + "\n";
 	}
+	s = nkqc::parser::preprocess(s);
 
 	llvm::LLVMContext ctx;
 	auto mod = make_shared<llvm::Module>(args[0], ctx);

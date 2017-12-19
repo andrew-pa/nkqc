@@ -2,8 +2,13 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/IRBuilder.h>
 #include "parser.h"
 
 namespace nkqc {
@@ -13,7 +18,7 @@ namespace nkqc {
 		virtual void print(ostream& os) const = 0;
 
 		virtual bool can_cast_to(shared_ptr<type_id>) const { return false; }
-		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::BasicBlock* b) const { return nullptr; }
+		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& b) const { return nullptr; }
 
 		virtual ~type_id() {}
 	};
@@ -37,6 +42,17 @@ namespace nkqc {
 		}
 		virtual void print(ostream& os) const override {
 			os << "()";
+		}
+	};
+	struct bool_type : public type_id {
+		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) const override {
+			return llvm::Type::getInt1Ty(c);
+		}
+		virtual bool equals(shared_ptr<type_id> o) const override {
+			return dynamic_pointer_cast<bool_type>(o) != nullptr;
+		}
+		virtual void print(ostream& os) const override {
+			os << "bool";
 		}
 	};
 	struct ptr_type;
@@ -63,12 +79,12 @@ namespace nkqc {
 		virtual bool can_cast_to(shared_ptr<type_id> t) const {
 			return dynamic_pointer_cast<integer_type>(t) != nullptr || dynamic_pointer_cast<ptr_type>(t) != nullptr;
 		}
-		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::BasicBlock* bb) const {
+		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& irb) const {
 			auto intag = dynamic_pointer_cast<integer_type>(target_type);
 			if (intag == nullptr) {
-				return llvm::CastInst::CreateBitOrPointerCast(src, target_type->llvm_type(cx), "", &bb->back());
+				return irb.CreateBitOrPointerCast(src, target_type->llvm_type(cx));
 			}
-			return llvm::CastInst::CreateIntegerCast(src, intag->llvm_type(cx), intag->signed_, "", bb);
+			return irb.CreateIntCast(src, intag->llvm_type(cx), intag->signed_);
 		}
 	};
 	struct plain_type : public type_id {
@@ -105,8 +121,8 @@ namespace nkqc {
 		virtual bool can_cast_to(shared_ptr<type_id> t) const {
 			return dynamic_pointer_cast<integer_type>(t) != nullptr || dynamic_pointer_cast<ptr_type>(t) != nullptr;
 		}
-		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::BasicBlock* bb) const {
-			return llvm::CastInst::CreateBitOrPointerCast(src, target_type->llvm_type(cx), "", &bb->back());
+		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& irb) const {
+			return irb.CreateBitOrPointerCast(src, target_type->llvm_type(cx));
 		}
 	};
 	struct array_type : public type_id {
@@ -125,6 +141,20 @@ namespace nkqc {
 		virtual void print(ostream& os) const override {
 			os << "[" << count << "]";
 			element->print(os);
+		}
+		
+		virtual bool can_cast_to(shared_ptr<type_id> t) const {
+			auto pt = dynamic_pointer_cast<ptr_type>(t);
+			return pt != nullptr && element->equals(pt->inner);
+		}
+		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& irb) const {
+			if (!can_cast_to(target_type)) return nullptr;
+
+			//auto v = new llvm::AllocaInst(target_type->llvm_type(cx), 0, "", bb);
+			//llvm::StoreInst _(src, v, bb);
+			auto alc = irb.CreateAlloca(src->getType());
+			irb.CreateStore(src, alc);
+			return irb.CreateGEP(llvm_type(cx), alc, {  llvm::ConstantInt::get(cx,llvm::APInt(32, 0)), llvm::ConstantInt::get(cx,llvm::APInt(32, 0)) });
 		}
 	};
 

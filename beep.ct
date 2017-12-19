@@ -1,8 +1,14 @@
 
 fn exitProcessWithCode: {code u32} #(#'ExitProcess@4' {()})
-fn emitBeepOfFrequency: {freq i32} forTime: {duration i32} #(#'Beep@8' {i32})
+fn emitBeepOfFrequency: {freq i32} forTime: {duration i32} #(#'Beep@8' {bool})
+fn stdHandle: {index i32} #(#'GetStdHandle@4' {*u32})
+fn write: {file *u32} data: {buffer *u8} ofLength: {len u32} returningBytesWritten: {numBytes *u32} andOverlapped: {ovr *u32}
+	#(#'WriteFile@20' {bool})
 
 fn main [
+	stdout := (#G stdHandle: -11).
+	null := ({*u32} ~ 0).
+	#G write: stdout data: ({*u8} ~ 'Hello, World!') ofLength: ({u32} ~ 14) returningBytesWritten: null andOverlapped: null.
 	(#G emitBeepOfFrequency: 440 forTime: 200).
 	(#G exitProcessWithCode: {u32} ~ 0).
 	^ 0
