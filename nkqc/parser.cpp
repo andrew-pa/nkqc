@@ -17,7 +17,7 @@ namespace nkqc {
 					numv += curr_char();
 					next_char();
 				} while (more_token() && isdigit(curr_char()));
-				assert(curr_char() == ']'); next_char();
+				expect(curr_char() == ']', "expected closing square bracket for array"); next_char();
 				return make_shared<array_type>(atoll(numv.c_str()), parse_type());
 			}
 			case 'u':
@@ -29,17 +29,19 @@ namespace nkqc {
 					numv += curr_char();
 					next_char();
 				} while (more_token() && isdigit(curr_char()));
+				// this should fall through to default case if there isn't a number afterwards
 				return make_shared<integer_type>(type == 'i', atoi(numv.c_str()));
 			}
 			case '(': {
-				next_char(); assert(curr_char() == ')');
+				next_char();
+				expect(curr_char() == ')', "expect closing paren for unit");
 				next_char();
 				return make_shared<unit_type>();
 			}
 			default: {
 				auto tk = get_token();
 				if (tk == "bool") return make_shared<bool_type>();
-				return make_shared<plain_type>(get_token());
+				return make_shared<plain_type>(tk);
 			}
 			}
 		}
@@ -64,21 +66,21 @@ namespace nkqc {
 			while (more_char() && curr_char() != '\'') {
 				v += curr_char(); next_char();
 			}
-			assert(curr_char() == '\'');
+			expect(curr_char() == '\'', "missing closing quote for string");
 			next_char();
 			return v;
 		}
 		
 		pair<pair<string, vector<shared_ptr<expr>>>,int>  expr_parser::parse_msgsnd_core() {
 			string tst = peek_token(true);
-			assert(tst.size() > 0);
+			expect(tst.size() > 0, "expect token");
 			pair<string, vector<shared_ptr<expr>>> msg;
 			int msgt = -1;
 			if (tst[tst.size() - 1] == ':') {
 				string msgn; vector<shared_ptr<expr>> args;
 				while (more_token()) {
 					string mnp = get_token(true);
-					assert(mnp[mnp.size() - 1] == ':');
+					expect(mnp[mnp.size() - 1] == ':', "expect selector to end with :");
 					msgn += mnp;
 					next_ws();
 					args.push_back(_parse(false, false));
@@ -138,7 +140,7 @@ namespace nkqc {
 				next_char_ws();
 				current_expr = _parse(true,true);
 				next_ws();
-				assert(curr_char() == ')');
+				expect(curr_char() == ')', "missing closing paren");
 				next_char_ws();
 			}
 			else if (curr_char() == '^') {
@@ -152,18 +154,18 @@ namespace nkqc {
 				if (curr_char() == ':') { //begining of first arg
 					while (curr_char() != '|') {
 						string a = get_token();
-						assert(a[0] == ':');
+						expect(a[0] == ':', "expected block argument to start with :");
 						args.push_back(a.substr(1));
 						next_ws();
 					}
 				}
 				if (args.size() > 0) {
-					assert(curr_char() == '|'); next_char();
+					expect(curr_char() == '|', "expected delimiting | for block arguments"); next_char();
 				}
 				next_ws();
 				auto b = _parse(true, true);
 				next_ws();
-				assert(curr_char() == ']');
+				expect(curr_char() == ']', "expected closing square bracket");
 				next_char();
 				current_expr = make_shared<block_expr>(args, b);
 			}
@@ -202,7 +204,7 @@ namespace nkqc {
 						xs.push_back(_parse(false, false, false));
 						next_ws();
 					}
-					assert(curr_char() == ')');
+					expect(curr_char() == ')', "missing closing paren for array");
 					next_char();
 					current_expr = make_shared<array_expr>(xs);
 				}
@@ -213,7 +215,7 @@ namespace nkqc {
 			else if (curr_char() == '{') {
 				next_char();
 				current_expr = make_shared<type_expr>(parse_type());
-				assert(curr_char() == '}');
+				expect(curr_char() == '}', "missing closing curly brace for type");
 				next_char();
 			}
 			// -- id --

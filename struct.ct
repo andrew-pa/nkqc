@@ -1,0 +1,38 @@
+
+"some useful Win32 APIs"
+fn exitProcessWithCode: {code u32} #(#'ExitProcess@4' {()})
+fn emitBeepOfFrequency: {freq i32} forTime: {duration i32} #(#'Beep@8' {bool})
+fn stdHandle: {index i32} #(#'GetStdHandle@4' {*u32})
+fn write: {file *u32} data: {buffer *u8} ofLength: {len u32} returningBytesWritten: {numBytes *u32} andOverlapped: {ovr *u32}
+	#(#'WriteFile@20' {bool})
+
+struct Counter | {x u32} |
+
+struct Rectangle | {x i32} {y i32} {w i32} {h i32} |
+
+"fn (Counter) new [
+	^ Counter x: 0
+]
+
+fn {Counter} incr [
+	x := (x + 1).
+	^ x
+]
+
+fn {Counter} count [
+	^ x
+]
+
+fn testCounter [
+	cnt := Counter new.
+	cnt incr.
+	cnt incr.
+	^ cnt count
+]"
+
+fn main [
+	"#G testCounter."
+	r := ({Rectangle} x: 3 y: 4 w: 50 h: 50).
+	#G exitProcessWithCode: ({u32} ~ 0).
+	^ 0
+]

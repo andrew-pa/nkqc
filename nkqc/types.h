@@ -10,9 +10,18 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
 #include "parser.h"
+#include <unordered_map>
 
 namespace nkqc {
-	struct type_id {
+
+	struct type_id;
+	struct typing_context {
+		virtual shared_ptr<type_id> type_for_name(const string& name) const = 0;
+	};
+
+	struct type_id : public enable_shared_from_this<type_id> {
+		virtual shared_ptr<type_id> resolve(typing_context*) { return shared_from_this(); }
+
 		virtual llvm::Type* llvm_type(llvm::LLVMContext&) const = 0;
 		virtual bool equals(shared_ptr<type_id> o) const = 0; // welcome to Java-land
 		virtual void print(ostream& os) const = 0;
@@ -101,6 +110,9 @@ namespace nkqc {
 		virtual void print(ostream& os) const override {
 			os << name;
 		}
+		virtual shared_ptr<type_id> resolve(typing_context* cx) override {
+			return cx->type_for_name(name);
+		}
 	};
 	struct ptr_type : public type_id {
 		shared_ptr<type_id> inner;
@@ -149,13 +161,47 @@ namespace nkqc {
 		}
 		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& irb) const {
 			if (!can_cast_to(target_type)) return nullptr;
-
-			//auto v = new llvm::AllocaInst(target_type->llvm_type(cx), 0, "", bb);
-			//llvm::StoreInst _(src, v, bb);
-			auto alc = irb.CreateAlloca(src->getType());
-			irb.CreateStore(src, alc);
-			return irb.CreateGEP(llvm_type(cx), alc, {  llvm::ConstantInt::get(cx,llvm::APInt(32, 0)), llvm::ConstantInt::get(cx,llvm::APInt(32, 0)) });
+			//auto alc = irb.CreateAlloca(src->getType());
+			//irb.CreateStore(src, alc);
+			return irb.CreateGEP(llvm_type(cx), src, {  llvm::ConstantInt::get(cx,llvm::APInt(32, 0)), llvm::ConstantInt::get(cx,llvm::APInt(32, 0)) });
+			//return irb.CreateBitCast(src, target_type->llvm_type(cx));
 		}
 	};
 
+	struct struct_type : public type_id {
+		vector<pair<string, shared_ptr<type_id>>> fields;
+
+		struct_type(vector<pair<string, shared_ptr<type_id>>> fields) : fields(fields) {}
+
+		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) const override {
+			vector<llvm::Type*> elem;
+			for (const auto& f : fields) {
+				elem.push_back(f.second->llvm_type(c));
+			}
+			return llvm::StructType::create(c, elem);
+		}
+
+		virtual bool equals(shared_ptr<type_id> o) const override {
+			auto ot = dynamic_pointer_cast<struct_type>(o);
+			if (ot != nullptr) {
+				if (fields.size() != ot->fields.size()) return false;
+				for (int i = 0; i < fields.size(); ++i) {
+					if (fields[i].first != ot->fields[i].first) return false;
+					if (!fields[i].second->equals(ot->fields[i].second)) return false;
+				}
+				return true;
+			}
+			else return false;
+		}
+
+		virtual void print(ostream& os) const override {
+			os << "| ";
+			for (const auto& p : fields) {
+				os << "{" << p.first << " ";
+				p.second->print(os);
+				os << "} ";
+			}
+			os << "|";
+		}
+	};
 }

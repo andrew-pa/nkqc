@@ -2,27 +2,48 @@
 #include "ast.h"
 #include "types.h"
 #include <cassert>
+#include <sstream>
 
 namespace nkqc {
 	namespace parser {
+		struct parse_error : public runtime_error {
+			uint32_t line, col;
+			parse_error(const string& m, uint32_t ln, uint32_t cl)
+				: runtime_error(m), line(ln), col(cl) {}
+		};
 		struct parser {
 			string buf;
-			uint32_t idx;
+			uint32_t idx, line, col;
 			inline bool more() { return idx < buf.size(); }
+			inline void reset(const string& s) {
+				buf = s;
+				idx = line = col = 0;
+			}
+			inline void copy_state(const parser& p) {
+				buf = p.buf;
+				idx = p.idx;
+				line = p.line;
+				col = p.col;
+			}
 		protected:
 
-			inline void next_char() { idx++; }
+			inline void next_char() {
+				idx++; col++;
+				if (curr_char() == '\n') { line++; col = 0; }
+			}
 			inline char curr_char() { if (idx > buf.size()) return '\0'; return buf[idx]; }
 			inline char peek_char(int of = 1) { if (idx + of > buf.size()) return '\0'; return buf[idx + of]; }
 			inline bool more_char() { return idx < buf.size(); }
 
 			inline void next_ws() {
-				if (curr_char() == '\"') {
-					next_char();
-					while (more_char() && curr_char() != '\"') next_char();
-					next_char();
+				while (more_char() && (isspace(curr_char()) || iscntrl(curr_char()) || curr_char() == '\"')) {
+					if (curr_char() == '\"') {
+						next_char();
+						while (more_char() && curr_char() != '\"') next_char();
+						next_char();
+					}
+					else next_char();
 				}
-				while (more_char() && (isspace(curr_char()) || iscntrl(curr_char()))) next_char();
 			}
 			
 			inline bool istermc(char c) {
@@ -87,7 +108,14 @@ namespace nkqc {
 				idx = oi;
 				return n;
 			}
+
+			inline void expect(bool x, const string& msg) {
+				assert(x);
+				if(!x) throw parse_error(msg, line, col);
+			}
 			
+			
+
 			shared_ptr<type_id> parse_type();
 		};
 
@@ -109,15 +137,13 @@ namespace nkqc {
 		public:
 
 			inline shared_ptr<ast::expr> parse(const string& s) {
-				buf = s;
-				idx = 0;
+				reset(s);
 				return _parse(true,true);
 			}
 			inline shared_ptr<ast::expr> parse(parser& p) {
-				buf = p.buf;
-				idx = p.idx;
+				copy_state(p);
 				auto rv = _parse(true, true);
-				p.idx = idx;
+				p.copy_state(*this);
 				return rv;
 			}
 		protected:
@@ -132,7 +158,7 @@ namespace nkqc {
 
 		class class_parser : public parser {
 		public:
-			class_parser(const string& s) { buf = s; idx = 0; }
+			class_parser(const string& s) { reset(s); }
 
 			inline shared_ptr<ast::top_level::class_decl> parse() {
 				if (!more())return nullptr;
@@ -152,35 +178,41 @@ namespace nkqc {
 
 		struct fn_decl {
 			shared_ptr<type_id> receiver;
+			bool static_function;
 			string selector;
 			vector<pair<string, shared_ptr<type_id>>> args;
 			shared_ptr<nkqc::ast::expr> body;
 
 			fn_decl(const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
-				: selector(sel), args(args), body(body) {}
-			fn_decl(shared_ptr<type_id> rev, const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
-				: receiver(rev), selector(sel), args(args), body(body) {}
+				: static_function(false), selector(sel), args(args), body(body) {}
+			fn_decl(bool static_, shared_ptr<type_id> rev, const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
+				: static_function(static_), receiver(rev), selector(sel), args(args), body(body) {}
 		};
 
 		struct file_parser : public expr_parser {
 
+			pair<string, shared_ptr<type_id>> parse_name_type_pair() {
+				expect(curr_char() == '{', "missing opening curly brace for name-type pair"); next_char();
+				next_ws();
+				auto n = get_token();
+				next_ws();
+				pair<string, shared_ptr<type_id>> p = { n, expr_parser::parse_type() };
+				next_ws();
+				expect(curr_char() == '}', "missing closing curly brace for name-type pair"); next_char();
+				return p;
+			}
+
 			tuple<string, vector<pair<string, shared_ptr<type_id>>>> parse_sel() {
 				string sel; vector<pair<string, shared_ptr<type_id>>> args;
 				string t = peek_token(true);
-				assert(t.size() > 0);
+				expect(t.size() > 0, "expect token");
 				if (t[t.size() - 1] == ':') {
 					while (more_token()) {
 						t = get_token(true);
-						assert(t[t.size() - 1] == ':');
+						expect(t[t.size() - 1] == ':', "expect selector words to end with :");
 						sel += t;
 						next_ws();
-						assert(curr_char() == '{'); next_char();
-						next_ws();
-						auto n = get_token();
-						next_ws();
-						args.push_back({ n, expr_parser::parse_type() });
-						next_ws();
-						assert(curr_char() == '}'); next_char();
+						args.push_back(parse_name_type_pair());
 						next_ws();
 					}
 				}
@@ -190,18 +222,45 @@ namespace nkqc {
 				return { sel, args };
 			}
 
-			void parse_all(const string& s, function<void(const fn_decl&)> FN) {
+			void parse_all(const string& s, function<void(const fn_decl&)> FN, function<void(const string&, shared_ptr<type_id>)> S) {
 				buf = s; idx = 0;
 				while (more()) {
 					next_ws();
 					auto t = get_token();
 					next_ws();
 					if (t == "fn") {
-						//type_id pot_recv = parse_type();
+						next_ws();
+						shared_ptr<type_id> rcv = nullptr;
+						bool static_ = false;
+						if (curr_char() == '{' || curr_char() == '(') {
+							auto opening = curr_char();
+							static_ = opening == '(';
+							next_ws();
+							rcv = expr_parser::parse_type();
+							next_ws();
+							expect(curr_char() == (opening == '{' ? '}' : ')'), "expect closing token for reciever type");
+							next_char();
+						}
 						string sel; vector<pair<string,shared_ptr<type_id>>> args;
 						tie(sel, args) = parse_sel();
 						next_ws();
-						FN(fn_decl(sel, args, _parse(false, false, false)));
+						FN(fn_decl(static_, rcv, sel, args, _parse(false, false, false)));
+					}
+					else if (t == "struct") {
+						next_ws();
+						string name = get_token();
+						next_ws();
+						expect(curr_char() == '|', "opening pipe for fields");
+						next_char();
+						vector<pair<string, shared_ptr<type_id>>> fields;
+						while (curr_char() != '|') {
+							next_ws();
+							fields.push_back(parse_name_type_pair());
+							next_ws();
+						}
+						expect(curr_char() == '|', "closing pipe for fields");
+						next_char();
+						S(name, make_shared<struct_type>(fields));
 					}
 				}
 				return;
