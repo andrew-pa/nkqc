@@ -235,11 +235,11 @@ namespace nkqc {
 						if (curr_char() == '{' || curr_char() == '(') {
 							auto opening = curr_char();
 							static_ = opening == '(';
-							next_ws();
+							next_char_ws();
 							rcv = expr_parser::parse_type();
 							next_ws();
 							expect(curr_char() == (opening == '{' ? '}' : ')'), "expect closing token for reciever type");
-							next_char();
+							next_char_ws();
 						}
 						string sel; vector<pair<string,shared_ptr<type_id>>> args;
 						tie(sel, args) = parse_sel();

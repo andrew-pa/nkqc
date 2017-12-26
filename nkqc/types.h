@@ -136,6 +136,10 @@ namespace nkqc {
 		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& irb) const {
 			return irb.CreateBitOrPointerCast(src, target_type->llvm_type(cx));
 		}
+
+		virtual shared_ptr<type_id> resolve(typing_context* cx) {
+			return make_shared<ptr_type>(inner->resolve(cx));
+		}
 	};
 	struct array_type : public type_id {
 		size_t count;
@@ -161,24 +165,34 @@ namespace nkqc {
 		}
 		virtual llvm::Value* cast_to(llvm::LLVMContext& cx, shared_ptr<type_id> target_type, llvm::Value* src, llvm::IRBuilder<>& irb) const {
 			if (!can_cast_to(target_type)) return nullptr;
-			//auto alc = irb.CreateAlloca(src->getType());
-			//irb.CreateStore(src, alc);
-			return irb.CreateGEP(llvm_type(cx), src, {  llvm::ConstantInt::get(cx,llvm::APInt(32, 0)), llvm::ConstantInt::get(cx,llvm::APInt(32, 0)) });
+			auto alc = irb.CreateAlloca(src->getType());
+			irb.CreateStore(src, alc);
+			return irb.CreateGEP(llvm_type(cx), alc, {  llvm::ConstantInt::get(cx,llvm::APInt(32, 0)), llvm::ConstantInt::get(cx,llvm::APInt(32, 0)) });
 			//return irb.CreateBitCast(src, target_type->llvm_type(cx));
+		}
+
+		virtual shared_ptr<type_id> resolve(typing_context* cx) {
+			return make_shared<array_type>(count, element->resolve(cx));
 		}
 	};
 
 	struct struct_type : public type_id {
 		vector<pair<string, shared_ptr<type_id>>> fields;
+		llvm::Type* t;
 
-		struct_type(vector<pair<string, shared_ptr<type_id>>> fields) : fields(fields) {}
+		struct_type(vector<pair<string, shared_ptr<type_id>>> fields) : fields(fields), t(nullptr) {}
 
-		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) const override {
+		void init(llvm::LLVMContext& c, const string& name) {
 			vector<llvm::Type*> elem;
 			for (const auto& f : fields) {
 				elem.push_back(f.second->llvm_type(c));
 			}
-			return llvm::StructType::create(c, elem);
+			t = llvm::StructType::create(c, elem, name);
+		}
+
+		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) const override {
+			assert(t != nullptr && "must call init() before llvm_type()");
+			return t;
 		}
 
 		virtual bool equals(shared_ptr<type_id> o) const override {
