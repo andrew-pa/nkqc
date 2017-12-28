@@ -40,7 +40,66 @@ namespace nkqc {
 		struct code_generator : public typing_context {
 			shared_ptr<llvm::Module> mod;
 
-			typedef unordered_map<string, pair<llvm::Value*, shared_ptr<type_id>>> expr_context;
+			//typedef unordered_map<string, pair<llvm::Value*, shared_ptr<type_id>>> expr_context;
+			struct expr_context {
+				typedef unordered_map<string, pair<llvm::Value*, shared_ptr<type_id>>> scope;
+				list<scope> scopes;
+
+				expr_context() : scopes{{}} {}
+
+				class iterator {
+					list<scope>::iterator cur_scope;
+					list<scope>::iterator end_scope;
+					scope::iterator cur_val;
+				public:
+					iterator(list<scope>::iterator cur, list<scope>::iterator end, scope::iterator curv)
+						: cur_scope(cur), end_scope(end), cur_val(curv) {}
+					bool operator==(const iterator& i) {
+						return cur_scope == i.cur_scope && cur_val == i.cur_val;
+					}
+					bool operator!=(const iterator& i) { return !(*this == i); }
+					void operator++() {
+						if (cur_scope == end_scope) return;
+						if (cur_val == cur_scope->end()) {
+							cur_scope++;
+							if (cur_scope == end_scope) return;
+							cur_val = cur_scope->begin();
+						} else cur_val++;
+					}
+					scope::value_type& operator *() { return *cur_val; }
+					scope::value_type* operator ->() { return &*cur_val; }
+					const scope::value_type& operator *() const { return *cur_val; }
+					const scope::value_type& operator ->() const { return *cur_val; }
+				};
+
+				void insert_or_assign(const string& name, shared_ptr<type_id> type, llvm::Value* value = nullptr) {
+					auto place = find(name);
+					if (place != end()) {
+						place->second = { value,type };
+					}
+					else {
+						scopes.front()[name] = { value,type };
+					}
+				}
+				pair<llvm::Value*, shared_ptr<type_id>>& at(const string& name) {
+					return find(name)->second;
+				}
+				pair<llvm::Value*, shared_ptr<type_id>>& operator[](const string& name) {
+					return scopes.front()[name];
+				}
+				iterator begin() { return iterator(scopes.begin(), scopes.end(), scopes.front().begin()); }
+				iterator end() { return iterator(scopes.end(), scopes.end(), scopes.front().end()); }
+				iterator find(const string& name) {
+					for (auto scp = scopes.begin(); scp != scopes.end(); ++scp) {
+						auto pv = scp->find(name);
+						if (pv != scp->end()) return iterator(scp, scopes.end(), pv);
+					}
+					return end();
+				}
+
+				void push_scope() { scopes.push_front({}); }
+				void pop_scope() { scopes.pop_front(); }
+			};
 
 			
 
@@ -164,7 +223,7 @@ namespace nkqc {
 					expr_context fncx;
 					expr_typer ty{ gen, &fncx };
 					for (int i = 0; i < decl.args.size(); ++i) {
-						ty.cx->insert_or_assign(decl.args[i].first, pair<llvm::Value*, shared_ptr<type_id>>{ nullptr, args[i] });
+						ty.cx->insert_or_assign(decl.args[i].first, args[i]);
 					}
 					ty.visit(decl.body);
 					auto v = ty.s.top(); ty.s.pop();
@@ -267,13 +326,13 @@ namespace nkqc {
 					expr_context fncx;
 					expr_typer ty{ gen, &fncx };
 					for (int i = 0; i < decl.args.size(); ++i) {
-						ty.cx->insert_or_assign(decl.args[i].first, pair<llvm::Value*, shared_ptr<type_id>>{ nullptr, args[i] });
+						ty.cx->insert_or_assign(decl.args[i].first, args[i]);
 					}
-					ty.cx->insert_or_assign("self", pair<llvm::Value*, shared_ptr<type_id>>{ nullptr, make_shared<ptr_type>(rcv) });
+					ty.cx->insert_or_assign("self", make_shared<ptr_type>(rcv));
 					auto strct = dynamic_pointer_cast<struct_type>(rcv);
 					if (strct != nullptr) {
 						for (const auto& f : strct->fields) {
-							ty.cx->insert_or_assign(f.first, pair<llvm::Value*, shared_ptr<type_id>>{ nullptr,f.second->resolve(gen) });
+							ty.cx->insert_or_assign(f.first, f.second->resolve(gen));
 						}
 					}
 					ty.visit(decl.body);
@@ -311,7 +370,10 @@ namespace nkqc {
 				expr_typer(code_generator* g, expr_context* cx) : gen(g), cx(cx) {}
 
 				void visit(const nkqc::ast::id_expr &x) override {
-					s.push(cx->at(x.v).second);
+					if (x.v == "true" || x.v == "false") {
+						s.push(make_shared<bool_type>());
+					}
+					else s.push(cx->at(x.v).second);
 				}
 				void visit(const nkqc::ast::string_expr &x) override {
 					s.push(make_shared<array_type>(x.v.size(), make_shared<integer_type>(false, 8)));
@@ -398,6 +460,12 @@ namespace nkqc {
 						arg->visit(this);
 						arg_t.push_back(s.top()->resolve(gen)); s.pop();
 					}
+					if (dynamic_pointer_cast<bool_type>(rcv_t) != nullptr) {
+						if (x.msgname == "ifTrue:ifFalse:") {
+							s.push(arg_t[0]);
+							return;
+						}
+					}
 					auto f = gen->lookup_function(x.msgname, rcv_t, arg_t);
 					if (f != nullptr) {
 						s.push(f->return_type(gen, rcv_t, arg_t));
@@ -408,7 +476,7 @@ namespace nkqc {
 				}
 				virtual void visit(const nkqc::ast::assignment_expr &x) {
 					x.val->visit(this);
-					cx->insert_or_assign(x.name, pair<llvm::Value*, shared_ptr<type_id>>{ nullptr, s.top() });
+					cx->insert_or_assign(x.name, s.top());
 					s.pop();
 					s.push(make_shared<unit_type>());
 				}
@@ -446,7 +514,12 @@ namespace nkqc {
 					: gen(gen), bb(bb), cx(cx), irb(bb) {}
 
 				virtual void visit(const nkqc::ast::id_expr &x) override {
-					s.push(irb.CreateLoad(cx->at(x.v).first));
+					if (x.v == "true")
+						s.push(llvm::ConstantInt::get(llvm::Type::getInt1Ty(gen->mod->getContext()), 1));
+					else if(x.v == "false")
+						s.push(llvm::ConstantInt::get(llvm::Type::getInt1Ty(gen->mod->getContext()), 0));
+					else
+						s.push(irb.CreateLoad(cx->at(x.v).first));
 				}
 				virtual void visit(const nkqc::ast::string_expr &x) override {
 //					s.push(irb.CreateAlloca(llvm::ArrayType::get(llvm::Type::getInt8Ty(gen->mod->getContext()), x.v.size())));
@@ -457,12 +530,17 @@ namespace nkqc {
 					s.push(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->mod->getContext()), x.iv));
 				}
 				virtual void visit(const nkqc::ast::block_expr &x) override {
+					// if we get here this is a proper closure
+					throw;
 				}
 				virtual void visit(const nkqc::ast::symbol_expr &x) override {
+					throw;
 				}
 				virtual void visit(const nkqc::ast::char_expr &x) override {
+					throw;
 				}
 				virtual void visit(const nkqc::ast::array_expr &x) override {
+					throw;
 				}
 				virtual void visit(const nkqc::ast::tag_expr &x) override {
 					cout << "tag " << x.v << endl;
@@ -535,6 +613,9 @@ namespace nkqc {
 				virtual void visit(const nkqc::ast::keyword_msgsnd &x) override {
 					auto glob = dynamic_pointer_cast<nkqc::ast::symbol_expr>(x.rcv);
 					auto tx = dynamic_pointer_cast<nkqc::parser::type_expr>(x.rcv);
+					vector<shared_ptr<type_id>> arg_t;
+					for (const auto& arg : x.args)
+						arg_t.push_back(gen->type_of(arg, cx));
 					shared_ptr<type_id> rcv_t;
 					if (glob != nullptr && glob->v == "G")
 						s.push(nullptr);
@@ -545,13 +626,55 @@ namespace nkqc {
 					else {
 						rcv_t = gen->type_of(x.rcv, cx);
 						x.rcv->visit(this);
+						if (dynamic_pointer_cast<bool_type>(rcv_t) != nullptr) {
+							if (x.msgname == "ifTrue:ifFalse:") {
+								if (arg_t.size() != 2 || !arg_t[0]->equals(arg_t[1]))
+									throw no_such_function_error("if statment branches must have same type", x.msgname, rcv_t, arg_t);
+								auto F = irb.GetInsertBlock()->getParent();
+								auto true_bb = llvm::BasicBlock::Create(irb.getContext(), "then", F);
+								auto false_bb = llvm::BasicBlock::Create(irb.getContext(), "else");
+								auto merge_bb = llvm::BasicBlock::Create(irb.getContext(), "merge");
+								irb.CreateCondBr(s.top(), true_bb, false_bb);
+								expr_generator true_gen(gen, true_bb, cx), false_gen(gen, false_bb, cx);
+								auto blk = dynamic_pointer_cast<ast::block_expr>(x.args[0]);
+								if (blk) {
+									cx->push_scope();
+									blk->body->visit(&true_gen);
+									true_gen.irb.CreateBr(merge_bb);
+									cx->pop_scope();
+								}
+								else {
+									x.args[0]->visit(&true_gen);
+									true_gen.irb.CreateBr(merge_bb);
+								}
+								F->getBasicBlockList().push_back(false_bb);
+								blk = dynamic_pointer_cast<ast::block_expr>(x.args[1]);
+								if (blk) {
+									cx->push_scope();
+									blk->body->visit(&false_gen);
+									false_gen.irb.CreateBr(merge_bb);
+									cx->pop_scope();
+								}
+								else {
+									x.args[1]->visit(&false_gen);
+									false_gen.irb.CreateBr(merge_bb);
+								}
+								F->getBasicBlockList().push_back(merge_bb);
+								irb.SetInsertPoint(merge_bb);
+								auto phi = irb.CreatePHI(arg_t[0]->llvm_type(irb.getContext()), 2);
+								phi->addIncoming(true_gen.s.top(), true_bb);
+								phi->addIncoming(false_gen.s.top(), false_bb);
+								s.push(phi);
+								return;
+							}
+						}
 					}
+
 					auto rcv = s.top(); s.pop();
-					vector<llvm::Value*> args; vector<shared_ptr<type_id>> arg_t;
+					vector<llvm::Value*> args; 
 					for (const auto& arg : x.args) {
 						arg->visit(this);
 						args.push_back(s.top()); s.pop();
-						arg_t.push_back(gen->type_of(arg, cx));
 					}
 					auto f = gen->lookup_function(x.msgname, rcv_t, arg_t);
 					if (f != nullptr) {
@@ -563,8 +686,20 @@ namespace nkqc {
 				}
 				virtual void visit(const nkqc::ast::assignment_expr &x) override {
 					x.val->visit(this);
-					allocate();
-					cx->insert_or_assign(x.name, pair<llvm::Value*, shared_ptr<type_id>>{ s.top(), gen->type_of(x.val, cx) });
+					auto v = cx->find(x.name);
+					if (v == cx->end() || v->second.first == nullptr) {
+						allocate();
+						cx->insert_or_assign(x.name, gen->type_of(x.val, cx), s.top());
+					}
+					else {
+						llvm::outs() << "assignment: ";
+						v->second.first->getType()->print(llvm::outs());
+						llvm::outs() << " -> ";
+						s.top()->getType()->print(llvm::outs());
+						llvm::outs() << "\n";
+						llvm::outs().flush();
+						irb.CreateStore(s.top(), v->second.first);
+					}
 				}
 			};
 

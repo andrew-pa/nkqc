@@ -31,11 +31,10 @@ fn testCounter [
 ]
 
 fn main [
-	#G testCounter.
 	stdout := (#G stdHandle: -11).
 	null := ({*u32} ~ 0).
 	#G write: stdout data: ({*u8} ~ 'Hello, World!') ofLength: ({u32} ~ 14) returningBytesWritten: null andOverlapped: null.
 	r := ({Rectangle} x: 3 y: 4 w: 50 h: 50).
-	#G exitProcessWithCode: ({u32} ~ 0).
+	#G exitProcessWithCode: #G testCounter.
 	^ 0
 ]

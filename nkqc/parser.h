@@ -110,7 +110,9 @@ namespace nkqc {
 			}
 
 			inline void expect(bool x, const string& msg) {
+#ifdef _DEBUG
 				assert(x);
+#endif
 				if(!x) throw parse_error(msg, line, col);
 			}
 			
