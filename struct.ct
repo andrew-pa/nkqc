@@ -19,6 +19,12 @@ fn {Counter} incr [
 	^ x
 ]
 
+fn {Counter} decr [
+	x := (x - ({u32} ~ 1)).
+	^ x
+]
+
+
 fn {Counter} count [
 	^ x
 ]
@@ -27,14 +33,31 @@ fn testCounter [
 	cnt := {Counter} new.
 	cnt incr.
 	cnt incr.
+	cnt incr.
+	cnt decr.
 	^ cnt count
 ]
 
 fn main [
 	stdout := (#G stdHandle: -11).
 	null := ({*u32} ~ 0).
-	#G write: stdout data: ({*u8} ~ 'Hello, World!') ofLength: ({u32} ~ 14) returningBytesWritten: null andOverlapped: null.
 	r := ({Rectangle} x: 3 y: 4 w: 50 h: 50).
-	#G exitProcessWithCode: #G testCounter.
+	c := {Counter} new.
+	c incr.
+	#G write: stdout data: ({*u8} ~ 'Hello, World!') ofLength: ({u32} ~ 14) returningBytesWritten: null andOverlapped: null.
+	(c count == ({u32} ~ 1)) ifTrue: [
+		#G emitBeepOfFrequency: 440 forTime: (200).
+		#G write: stdout data: ({*u8} ~ 'Counter has a count of 1') ofLength: ({u32} ~ 25) returningBytesWritten: null andOverlapped: null
+	] ifFalse: [
+		"#G write: stdout data: ({*u8} ~ 'B') ofLength: ({u32} ~ 1) returningBytesWritten: null andOverlapped: null."
+		#G emitBeepOfFrequency: 3440 forTime: 200
+	].
+	#G exitProcessWithCode: ({u32} ~ 0).
 	^ 0
 ]
+
+"fn main [
+	c := {Counter} new.
+	c incr.
+	^ (c count == ({u32} ~ 1)) ifTrue: (222) ifFalse: (333)
+]"

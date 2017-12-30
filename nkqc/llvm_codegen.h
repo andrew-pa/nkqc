@@ -144,6 +144,37 @@ namespace nkqc {
 				}
 			};
 
+			struct numeric_comp_op : public function {
+				llvm::CmpInst::Predicate pred;
+				bool floating;
+
+				numeric_comp_op(llvm::CmpInst::Predicate pred, bool floating) : pred(pred), floating(floating) {}
+
+				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) {
+					if (floating) {
+						g->s.push(g->irb.CreateFCmp(pred, rcv, args[0]));
+					}
+					else {
+						g->s.push(g->irb.CreateICmp(pred, rcv, args[0]));
+					}
+				}
+
+				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override {
+					if (args.size() != 1 || !rcv->equals(args[0])) return false;
+					if (floating) {
+						throw internal_codegen_error("floating not yet supported");
+					}
+					else {
+						return dynamic_pointer_cast<integer_type>(rcv) != nullptr;
+					}
+				}
+
+				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+					if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
+					return make_shared<bool_type>();
+				}
+			};
+
 			struct cast_op : public function {
 				cast_op() {}
 
@@ -259,7 +290,7 @@ namespace nkqc {
 						auto p = g->irb.CreateGEP(v, { zero, llvm::ConstantInt::get(i32t, i, false) });
 						g->irb.CreateStore(args[i], p);
 					}
-					g->s.push(g->irb.CreateGEP(v, {zero}));
+					g->s.push(g->irb.CreateLoad(g->irb.CreateGEP(v, {zero})));
 				}
 
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override {
@@ -293,25 +324,35 @@ namespace nkqc {
 					if (rcv == nullptr) throw internal_codegen_error("tried to apply a method function with a non-null reciever");
 					vector<llvm::Value*> aargs;
 
-					auto alc = g->irb.CreateAlloca(rcv->getType());
+					/*auto alc = g->irb.CreateAlloca(rcv->getType(), nullptr, "rcv");
 					g->irb.CreateStore(rcv, alc);
 					auto zero = llvm::ConstantInt::get(g->irb.getContext(), llvm::APInt(32, 0));
-					auto ref = g->irb.CreateGEP(rcv->getType(), alc, { zero, });
+					auto ref = g->irb.CreateGEP(rcv->getType(), alc, { zero, });*/
 					
-					/*llvm::outs() << "--\n";
+					llvm::outs() << "\n--\nf = ";
 					f->getType()->print(llvm::outs(), true);
-					llvm::outs() << "\n";
+					llvm::outs() << "\nrcv  = ";
 					rcv->getType()->print(llvm::outs());
-					llvm::outs() << "\n";
+					llvm::outs() << "\nrcv_t = ";
 					rcv_t->llvm_type(g->irb.getContext())->print(llvm::outs());
-					llvm::outs() << "\n";
+					llvm::outs() << " ~ ";
+					llvm::outs().flush();
+					rcv_t->print(cout);
+					cout.flush();
+					llvm::outs() << "\nd_rcv = ";
+					decl.receiver->llvm_type(g->irb.getContext())->print(llvm::outs());
+					llvm::outs() << " ~ ";
+					llvm::outs().flush();
+					decl.receiver->print(cout);
+					cout.flush();
+					/*llvm::outs() << "\n";
 					ref->getType()->print(llvm::outs());
 					llvm::outs() << "=";
-					alc->getType()->print(llvm::outs());
-					llvm::outs() << "--\n";
-					llvm::outs().flush();*/
+					alc->getType()->print(llvm::outs());*/
+					llvm::outs() << "\n--\n";
+					llvm::outs().flush();
 
-					aargs.push_back(ref);
+					aargs.push_back(rcv);
 					aargs.insert(aargs.end(), args.begin(), args.end());
 					g->s.push(g->irb.CreateCall(f, aargs));
 				}
@@ -328,11 +369,14 @@ namespace nkqc {
 					for (int i = 0; i < decl.args.size(); ++i) {
 						ty.cx->insert_or_assign(decl.args[i].first, args[i]);
 					}
-					ty.cx->insert_or_assign("self", make_shared<ptr_type>(rcv));
-					auto strct = dynamic_pointer_cast<struct_type>(rcv);
-					if (strct != nullptr) {
-						for (const auto& f : strct->fields) {
-							ty.cx->insert_or_assign(f.first, f.second->resolve(gen));
+					ty.cx->insert_or_assign("self", rcv);
+					auto ptr = dynamic_pointer_cast<ptr_type>(rcv);
+					if (ptr != nullptr) {
+						auto strct = dynamic_pointer_cast<struct_type>(ptr->inner);
+						if (strct != nullptr) {
+							for (const auto& f : strct->fields) {
+								ty.cx->insert_or_assign(f.first, f.second->resolve(gen));
+							}
 						}
 					}
 					ty.visit(decl.body);
@@ -349,6 +393,7 @@ namespace nkqc {
 				functions["*"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Mul));
 				functions["-"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Sub));
 				functions["/"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::SDiv));
+				functions["=="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_EQ, false));
 				functions["~"].push_back(make_shared<cast_op>());
 			}
 
@@ -416,6 +461,8 @@ namespace nkqc {
 					else {
 						x.rcv->visit(this);
 						rcv_t = s.top()->resolve(gen); s.pop();
+						if (rcv_t->receive_by_ref())
+							rcv_t = make_shared<ptr_type>(rcv_t);
 					}
 					auto f = gen->lookup_function(x.msgname, rcv_t, {});
 					if (f != nullptr) {
@@ -434,6 +481,8 @@ namespace nkqc {
 					else {
 						x.rcv->visit(this);
 						rcv = s.top()->resolve(gen); s.pop();
+						if (rcv->receive_by_ref())
+							rcv = make_shared<ptr_type>(rcv);
 					}
 					auto sf = gen->lookup_function(x.op, rcv, { rhs });
 					if (sf != nullptr)
@@ -454,6 +503,8 @@ namespace nkqc {
 					else {
 						x.rcv->visit(this);
 						rcv_t = s.top()->resolve(gen); s.pop();
+						if (rcv_t->receive_by_ref())
+							rcv_t = make_shared<ptr_type>(rcv_t);
 					}
 					vector<shared_ptr<type_id>> arg_t;
 					for (const auto& arg : x.args) {
@@ -492,15 +543,7 @@ namespace nkqc {
 				return expr->resolve(this)->llvm_type(mod->getContext());
 			}
 
-			llvm::FunctionType* type_of(const nkqc::parser::fn_decl& fn, expr_context* cx) {
-				vector<llvm::Type*> params;
-				if (fn.receiver != nullptr && !fn.static_function)
-					params.push_back(type_of(make_shared<ptr_type>(fn.receiver)));
-				for (const auto& arg : fn.args) {
-					params.push_back(type_of(arg.second));
-				}
-				return llvm::FunctionType::get(type_of(fn.body, cx)->llvm_type(mod->getContext()), params, false);
-			}
+			
 
 
 			struct expr_generator : public ast::expr_visiter<> {
@@ -524,7 +567,7 @@ namespace nkqc {
 				virtual void visit(const nkqc::ast::string_expr &x) override {
 //					s.push(irb.CreateAlloca(llvm::ArrayType::get(llvm::Type::getInt8Ty(gen->mod->getContext()), x.v.size())));
 					s.push(llvm::ConstantDataArray::get(gen->mod->getContext(),
-						llvm::ArrayRef<uint8_t>((uint8_t*)x.v.c_str(), x.v.size())));
+						llvm::ArrayRef<uint8_t>((uint8_t*)x.v.c_str(), x.v.size()+1)));
 				}
 				virtual void visit(const nkqc::ast::number_expr &x) override {
 					s.push(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->mod->getContext()), x.iv));
@@ -555,7 +598,7 @@ namespace nkqc {
 					s.push(irb.CreateRet(v));
 				}
 				void allocate() {
-					auto a = irb.CreateAlloca(s.top()->getType());
+					auto a = irb.CreateAlloca(s.top()->getType(), nullptr, "var");
 					irb.CreateStore(s.top(), a);
 					s.pop();
 					s.push(a);
@@ -571,8 +614,18 @@ namespace nkqc {
 						rcv_t = tx->type->resolve(gen);
 					}
 					else {
+						// all receivers are passed by reference
 						rcv_t = gen->type_of(x.rcv, cx);
-						x.rcv->visit(this);
+						auto id = dynamic_pointer_cast<ast::id_expr>(x.rcv);
+						if (id != nullptr) {
+							s.push(cx->at(id->v).first);
+						}
+						else x.rcv->visit(this);
+						if (rcv_t->receive_by_ref()) {
+							rcv_t = make_shared<ptr_type>(rcv_t);
+							//if (!llvm::isa<llvm::AllocaInst>(s.top())) //->getType()->isPointerTy()) {
+							//	allocate();
+						}
 					}
 					auto rcv = s.top(); s.pop();
 					auto f = gen->lookup_function(x.msgname, rcv_t, {});
@@ -724,28 +777,41 @@ namespace nkqc {
 					auto name = dynamic_pointer_cast<ast::symbol_expr>(cfn->vs[0])->v;
 					auto F = llvm::cast<llvm::Function>(mod->getOrInsertFunction(name, fn_t));
 					F->setLinkage(llvm::Function::LinkageTypes::ExternalLinkage);
-					//	llvm::Function::Create(fn_t, llvm::Function::ExternalLinkage, name, mod.get());
 					functions[fn.selector].push_back(make_shared<extern_fn>(F, fn.args, ret_t));
 					return F;
 				}
 				else {
-					if (fn.receiver != nullptr)
+					shared_ptr<struct_type> strct = nullptr;
+					if (fn.receiver != nullptr) { // pre-resolve the receiver type and store it in case the function itself needs it
 						fn.receiver = fn.receiver->resolve(this);
-					auto strct = dynamic_pointer_cast<struct_type>(fn.receiver);
+						strct = dynamic_pointer_cast<struct_type>(fn.receiver);
+						if (!fn.static_function)
+							// all receivers are passed by reference to allow for mutation
+							fn.receiver = make_shared<ptr_type>(fn.receiver);
+					}
+					// declare instance variables
 					if (strct != nullptr && !fn.static_function) {
 						for (const auto& f : strct->fields) {
 							cx[f.first].second = f.second;
 						}
 					}
-					auto F = llvm::cast<llvm::Function>(mod->getOrInsertFunction(fn.selector, type_of(fn, &cx)));
+					vector<llvm::Type*> params;
+					if (fn.receiver != nullptr && !fn.static_function)
+						params.push_back(type_of(fn.receiver));
+					for (const auto& arg : fn.args) {
+						params.push_back(type_of(arg.second));
+					}
+					auto F_t = llvm::FunctionType::get(type_of(fn.body, &cx)->llvm_type(mod->getContext()), params, false);
+					auto F = llvm::cast<llvm::Function>(mod->getOrInsertFunction(fn.selector, F_t));
 					auto entry_block = llvm::BasicBlock::Create(mod->getContext(), "entry", F);
 					auto vals = F->arg_begin();
+					// for member functions/methods initialize `self` variable and instance variables
 					if(fn.receiver != nullptr && !fn.static_function) {
 						/*llvm::IRBuilder<> irb(entry_block);
 						auto self = cx["self"].first = irb.CreateAlloca(v->getType()); vals++;
 						irb.CreateStore(llvm::cast<llvm::Value>(&*vals), self);*/
 						auto self = cx["self"].first = llvm::cast<llvm::Value>(&*vals);
-						cx["self"].second = make_shared<ptr_type>(fn.receiver);
+						cx["self"].second = fn.receiver;
 						/*auto llvm_argument_type = cx["self"].first->getType();
 						llvm_argument_type->print(llvm::outs());
 						llvm::outs() << "-";
@@ -757,6 +823,7 @@ namespace nkqc {
 						nkqc_type->getPointerElementType()->print(llvm::outs());
 						llvm::outs().flush();*/
 						if (strct != nullptr) {
+							// assign values to instance variables
 							auto zero = llvm::ConstantInt::get(mod->getContext(), llvm::APInt(32, 0));
 							for (int i = 0; i < strct->fields.size(); ++i) {
 								cx[strct->fields[i].first].first =
