@@ -216,38 +216,5 @@ namespace nkqc{
 			}
 			void visit(expr_visiter<>* V) const override { V->visit(*this); }
 		};
-
-		namespace top_level {
-			/*
-				<file> := <class>+
-				<class> := <id> subclass: <id> '[' ('|' <id>+ '|') <method-dcl>+ ']'
-				<method-dcl> := ('<static>') <sel> '[' ('|' <id>+ '|') <expr> ']'
-				<sel> := <id> | <binop> | (<id>':' <id>)+
-			*/
-
-			struct method_decl {
-				enum class modifier {
-					none, varadic, static_
-				};
-				modifier mod;
-				string sel;
-				vector<string> args;
-				vector<string> local_vars;
-				shared_ptr<expr> body;
-
-				method_decl(const string& s, const vector<string>& ag, const vector<string>& lv, shared_ptr<expr> b, modifier md = modifier::none)
-					: mod(md), sel(s), args(ag), local_vars(lv), body(b) {}
-			};
-
-			struct class_decl {
-				string super_name;
-				string name;
-				vector<string> instance_vars;
-				vector<method_decl> methods;
-
-				class_decl(const string& sn, const string& n, const vector<string>& iv, const vector<method_decl>& md)
-					: super_name(sn), name(n), instance_vars(iv), methods(md) {}
-			};
-		}
 	}
 }

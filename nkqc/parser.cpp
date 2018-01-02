@@ -242,95 +242,6 @@ namespace nkqc {
 			return current_expr;
 		}
 		
-
-		
-		shared_ptr<ast::top_level::class_decl> class_parser::_parse() {
-			next_ws();
-			auto super_class = get_token();
-			next_ws();
-			auto kwd = get_token(true);
-			assert(kwd == "subclass:");
-			next_ws();
-			auto class_name = get_token();
-			next_ws();
-			assert(curr_char() == '[');
-			next_char_ws();
-			vector<string> iv;
-			if (curr_char() == '|') {
-				next_char_ws();
-				while (curr_char() != '|') {
-					iv.push_back(get_token());
-					next_ws();
-				}
-				next_char_ws();
-			}
-			vector<ast::top_level::method_decl> md;
-			while (curr_char() != ']') {
-				md.push_back(parse_method());
-				next_ws();
-			}
-			next_char_ws();
-			return make_shared<ast::top_level::class_decl>(super_class, class_name, iv, md);
-		}
-
-		ast::top_level::method_decl class_parser::parse_method() {
-			next_ws();
-			auto fkom = get_token(true);
-			ast::top_level::method_decl::modifier md = ast::top_level::method_decl::modifier::none;
-			string sel; vector<string> args;
-			if (fkom[0] == '!') {
-				auto m = fkom.substr(1, fkom.size() - 1);
-				if (m == "static") md = ast::top_level::method_decl::modifier::static_;
-				else if(m == "varadic") md = ast::top_level::method_decl::modifier::varadic;
-				next_ws();
-				fkom = get_token(true);
-			}
-			
-			if (fkom[fkom.size()-1] == ':') {
-				sel = fkom;
-				next_char();
-				while (curr_char() != '[') {
-					next_ws();
-					args.push_back(get_token());
-					next_ws();
-					if (curr_char() == '[') break; //TODO: this is stupid
-					auto nk = get_token(true);
-					assert(nk[nk.size()-1] == ':');
-					sel += nk;
-				}
-			} 
-			else if (!isalnum(fkom[0]) && (fkom.size() > 1 || !isalnum(fkom[1]))) { //binary operator
-				sel = fkom;
-				//for (int i = 0; i < fkom.size(); ++i) next_char();
-				next_ws();
-				args.push_back(get_token());
-				next_ws();
-			}
-			else { //unary op
-				sel = fkom;
-				next_ws();
-			}
-			assert(curr_char() == '[');
-			next_char_ws();
-			vector<string> lv;
-			if (curr_char() == '|') {
-				next_char_ws();
-				while (curr_char() != '|') {
-					lv.push_back(get_token());
-					next_ws();
-				}
-				next_char();
-			}
-			expr_parser x;
-			auto rv = ast::top_level::method_decl(sel, args, lv, x.parse(*this), md);
-			next_ws();
-			assert(curr_char() == ']');
-			next_char();
-			return rv;
-		}
-
-
-
 		string preprocess(const string & s) {
 			string fs;
 			size_t fqp = s.find('"');
@@ -345,6 +256,5 @@ namespace nkqc {
 			return fs + s.substr(lfqp);
 		}
 }
-
 
 }

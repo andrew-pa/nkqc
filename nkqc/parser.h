@@ -158,20 +158,6 @@ namespace nkqc {
 
 		};
 
-		class class_parser : public parser {
-		public:
-			class_parser(const string& s) { reset(s); }
-
-			inline shared_ptr<ast::top_level::class_decl> parse() {
-				if (!more())return nullptr;
-				return _parse();
-			}
-		protected:
-			shared_ptr<ast::top_level::class_decl> _parse();
-			ast::top_level::method_decl parse_method();
-
-		};
-
 		string preprocess(const string& s);
 
 		struct decl {
