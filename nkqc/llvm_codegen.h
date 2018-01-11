@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <functional>
 #include <stack>
+#include <list>
 
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Module.h>
