@@ -34,9 +34,24 @@ namespace nkqc {
 			}
 			case '(': {
 				next_char();
-				expect(curr_char() == ')', "expect closing paren for unit");
-				next_char();
-				return make_shared<unit_type>();
+				if (curr_char() == ')') {
+					next_char();
+					return make_shared<unit_type>();
+				}
+				else {
+					next_ws();
+					vector<shared_ptr<type_id>> args;
+					while (curr_char() != ')') {
+						next_ws();
+						args.push_back(parse_type());
+					}
+					next_char();
+					next_ws();
+					expect(curr_char() == '-' && peek_char() == '>', "expected function arrow after arguments");
+					next_char(); next_char();
+					next_ws();
+					return make_shared<function_type>(args, parse_type());
+				}
 			}
 			default: {
 				auto tk = get_token();
