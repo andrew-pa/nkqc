@@ -9,6 +9,7 @@ namespace nkqc {
 			functions["-"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Sub));
 			functions["/"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::SDiv));
 			functions["=="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_EQ, false));
+			functions["!="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_NE, false));
 			functions["~"].push_back(make_shared<cast_op>());
 		}
 
@@ -53,7 +54,10 @@ namespace nkqc {
 				for (const auto& arg : fn.args) {
 					params.push_back(type_of(arg.second));
 				}
-				auto F_t = llvm::FunctionType::get(type_of(fn.body, &cx)->llvm_type(mod->getContext()), params, false);
+				shared_ptr<type_id> return_type;
+				if (fn.return_type) return_type = fn.return_type->resolve(this);
+				else return_type = type_of(fn.body, &cx);
+				auto F_t = llvm::FunctionType::get(return_type->llvm_type(mod->getContext()), params, false);
 				auto F = llvm::cast<llvm::Function>(mod->getOrInsertFunction(fn.selector, F_t));
 				auto entry_block = llvm::BasicBlock::Create(mod->getContext(), "entry", F);
 				auto vals = F->arg_begin();
@@ -83,11 +87,13 @@ namespace nkqc {
 						}
 					}
 				}
+				llvm::IRBuilder<> irb(entry_block);
 				for (const auto& arg : fn.args) {
-					cx[arg.first] = { llvm::cast<llvm::Value>(&*vals), arg.second };
+					auto alc = irb.CreateAlloca(vals->getType());
+					irb.CreateStore(llvm::cast<llvm::Value>(&*vals), alc);
+					cx[arg.first] = { alc, arg.second };
 					vals++;
 				}
-				generate_expr(cx, dynamic_pointer_cast<ast::block_expr>(fn.body)->body, entry_block);
 				if (fn.receiver != nullptr) {
 					if (fn.static_function) {
 						functions[fn.selector].push_back(make_shared<static_fn>(fn, F));
@@ -97,6 +103,7 @@ namespace nkqc {
 					}
 				}
 				else functions[fn.selector].push_back(make_shared<global_fn>(fn, F));
+				generate_expr(cx, dynamic_pointer_cast<ast::block_expr>(fn.body)->body, entry_block);
 				return F;
 			}
 		}

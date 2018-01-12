@@ -104,13 +104,16 @@ namespace nkqc {
 
 			inline string peek_token(bool isSel = false) {
 				int oi = idx;
+				size_t ol = line, oc = col;
 				string n = get_token(isSel);
 				idx = oi;
+				line = ol; col = oc;
 				return n;
 			}
 
 			inline void expect(bool x, const string& msg) {
 #ifdef _DEBUG
+				if(!x) cout << "error at " << line << ", " << col << ": " << msg << endl;
 				assert(x);
 #endif
 				if(!x) throw parse_error(msg, line, col);
@@ -165,94 +168,25 @@ namespace nkqc {
 		};
 
 		struct fn_decl {
-			shared_ptr<type_id> receiver;
+			shared_ptr<type_id> receiver, return_type;
 			bool static_function;
 			string selector;
 			vector<pair<string, shared_ptr<type_id>>> args;
 			shared_ptr<nkqc::ast::expr> body;
 
-			fn_decl(const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
-				: static_function(false), selector(sel), args(args), body(body) {}
-			fn_decl(bool static_, shared_ptr<type_id> rev, const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body)
-				: static_function(static_), receiver(rev), selector(sel), args(args), body(body) {}
+			fn_decl(const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body, shared_ptr<type_id> ret)
+				: static_function(false), selector(sel), args(args), body(body), return_type(ret) {}
+			fn_decl(bool static_, shared_ptr<type_id> rev, const string& sel, vector<pair<string, shared_ptr<type_id>>> args, shared_ptr<nkqc::ast::expr> body, shared_ptr<type_id> ret)
+				: static_function(static_), receiver(rev), selector(sel), args(args), body(body), return_type(ret) {}
 		};
 
 		struct file_parser : public expr_parser {
 
-			pair<string, shared_ptr<type_id>> parse_name_type_pair() {
-				expect(curr_char() == '{', "missing opening curly brace for name-type pair"); next_char();
-				next_ws();
-				auto n = get_token();
-				next_ws();
-				pair<string, shared_ptr<type_id>> p = { n, expr_parser::parse_type() };
-				next_ws();
-				expect(curr_char() == '}', "missing closing curly brace for name-type pair"); next_char();
-				return p;
-			}
+			pair<string, shared_ptr<type_id>> parse_name_type_pair();
 
-			tuple<string, vector<pair<string, shared_ptr<type_id>>>> parse_sel() {
-				string sel; vector<pair<string, shared_ptr<type_id>>> args;
-				string t = peek_token(true);
-				expect(t.size() > 0, "expect token");
-				if (t[t.size() - 1] == ':') {
-					while (more_token()) {
-						t = get_token(true);
-						expect(t[t.size() - 1] == ':', "expect selector words to end with :");
-						sel += t;
-						next_ws();
-						args.push_back(parse_name_type_pair());
-						next_ws();
-					}
-				}
-				else {
-					sel = get_token();
-				}
-				return { sel, args };
-			}
+			tuple<string, vector<pair<string, shared_ptr<type_id>>>> parse_sel();
 
-			void parse_all(const string& s, function<void(const fn_decl&)> FN, function<void(const string&, shared_ptr<type_id>)> S) {
-				buf = s; idx = 0;
-				while (more()) {
-					next_ws();
-					auto t = get_token();
-					next_ws();
-					if (t == "fn") {
-						next_ws();
-						shared_ptr<type_id> rcv = nullptr;
-						bool static_ = false;
-						if (curr_char() == '{' || curr_char() == '(') {
-							auto opening = curr_char();
-							static_ = opening == '(';
-							next_char_ws();
-							rcv = expr_parser::parse_type();
-							next_ws();
-							expect(curr_char() == (opening == '{' ? '}' : ')'), "expect closing token for reciever type");
-							next_char_ws();
-						}
-						string sel; vector<pair<string,shared_ptr<type_id>>> args;
-						tie(sel, args) = parse_sel();
-						next_ws();
-						FN(fn_decl(static_, rcv, sel, args, _parse(false, false, false)));
-					}
-					else if (t == "struct") {
-						next_ws();
-						string name = get_token();
-						next_ws();
-						expect(curr_char() == '|', "opening pipe for fields");
-						next_char();
-						vector<pair<string, shared_ptr<type_id>>> fields;
-						while (curr_char() != '|') {
-							next_ws();
-							fields.push_back(parse_name_type_pair());
-							next_ws();
-						}
-						expect(curr_char() == '|', "closing pipe for fields");
-						next_char();
-						S(name, make_shared<struct_type>(fields));
-					}
-				}
-				return;
-			}
+			void parse_all(const string& s, function<void(const fn_decl&)> FN, function<void(const string&, shared_ptr<type_id>)> S);
 
 			shared_ptr<type_id> parse_type(const string& s) {
 				buf = s; idx = 0;

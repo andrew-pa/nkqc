@@ -255,6 +255,86 @@ namespace nkqc {
 			}
 			return fs + s.substr(lfqp);
 		}
+
+		pair<string, shared_ptr<type_id>> file_parser::parse_name_type_pair() {
+			expect(curr_char() == '{', "missing opening curly brace for name-type pair"); next_char();
+			next_ws();
+			auto n = get_token();
+			next_ws();
+			pair<string, shared_ptr<type_id>> p = { n, expr_parser::parse_type() };
+			next_ws();
+			expect(curr_char() == '}', "missing closing curly brace for name-type pair"); next_char();
+			return p;
+		}
+
+		tuple<string, vector<pair<string, shared_ptr<type_id>>>> file_parser::parse_sel() {
+			string sel; vector<pair<string, shared_ptr<type_id>>> args;
+			string t = peek_token(true);
+			expect(t.size() > 0, "expect token");
+			if (t[t.size() - 1] == ':') {
+				while (more_token()) {
+					t = get_token(true);
+					expect(t[t.size() - 1] == ':', "expect selector words to end with :");
+					sel += t;
+					next_ws();
+					args.push_back(parse_name_type_pair());
+					next_ws();
+				}
+			}
+			else {
+				sel = get_token();
+			}
+			return { sel, args };
+		}
+
+		void file_parser::parse_all(const string& s, function<void(const fn_decl&)> FN, function<void(const string&, shared_ptr<type_id>)> S) {
+			buf = s; idx = 0;
+			while (more()) {
+				next_ws();
+				auto t = get_token();
+				next_ws();
+				if (t == "fn") {
+					next_ws();
+					shared_ptr<type_id> rcv = nullptr, ret = nullptr;
+					bool static_ = false;
+					if (curr_char() == '{' || curr_char() == '(') {
+						auto opening = curr_char();
+						static_ = opening == '(';
+						next_char_ws();
+						rcv = expr_parser::parse_type();
+						next_ws();
+						expect(curr_char() == (opening == '{' ? '}' : ')'), "expect closing token for reciever type");
+						next_char_ws();
+					}
+					string sel; vector<pair<string, shared_ptr<type_id>>> args;
+					tie(sel, args) = parse_sel();
+					next_ws();
+					if (curr_char() == '-' && peek_char(1) == '>') {
+						next_char(); next_char_ws();
+						ret = expr_parser::parse_type();
+						next_ws();
+					}
+					FN(fn_decl(static_, rcv, sel, args, _parse(false, false, false), ret));
+				}
+				else if (t == "struct") {
+					next_ws();
+					string name = get_token();
+					next_ws();
+					expect(curr_char() == '|', "opening pipe for fields");
+					next_char();
+					vector<pair<string, shared_ptr<type_id>>> fields;
+					while (curr_char() != '|') {
+						next_ws();
+						fields.push_back(parse_name_type_pair());
+						next_ws();
+					}
+					expect(curr_char() == '|', "closing pipe for fields");
+					next_char();
+					S(name, make_shared<struct_type>(fields));
+				}
+			}
+			return;
+		}
 }
 
 }

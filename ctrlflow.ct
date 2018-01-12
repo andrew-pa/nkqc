@@ -23,14 +23,17 @@ fn loops [
 	^ 0
 ]"
 
+struct Foo | {x i32} |
+
 fn main [
 	stdout := (#G stdHandle: -11).
 	null := ({*u32} ~ 0).
+	fob := ({Foo} x: 3).
 	false ifTrue: [
 		#G write: stdout data: ({*u8} ~ 'True!') ofLength: ({u32} ~ 5) returningBytesWritten: null andOverlapped: null
 	] ifFalse: [
 		#G write: stdout data: ({*u8} ~ 'False!') ofLength: ({u32} ~ 6) returningBytesWritten: null andOverlapped: null
 	].
-	#G exitProcessWithCode: ({u32} ~ 0).
+	#G exitProcessWithCode: ({u32} ~ (0)).
 	^ 0
 ]

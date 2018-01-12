@@ -55,6 +55,45 @@ namespace nkqc {
 			os << "()";
 		}
 	};
+	struct function_type : public type_id {
+		vector<shared_ptr<type_id>> args;
+		shared_ptr<type_id> return_type;
+
+		function_type(const vector<shared_ptr<type_id>>& args, shared_ptr<type_id> rt)
+			:args(args), return_type(rt) {}
+
+		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) const override {
+			vector<llvm::Type*> arg_t;
+			for (const auto& t : args) arg_t.push_back(t->llvm_type(c));
+			return llvm::FunctionType::get(return_type->llvm_type(c), arg_t, false);
+		}
+		virtual bool equals(shared_ptr<type_id> o) const override {
+			auto of = dynamic_pointer_cast<function_type>(o);
+			if (of) {
+				if (of->args.size() != args.size()) return false;
+				for (size_t i = 0; i < args.size(); ++i) {
+					if (!args[i]->equals(of->args[i])) return false;
+				}
+				return return_type->equals(of->return_type);
+			}
+			else return false;
+		}
+		virtual void print(ostream& os) const override {
+			os << "( ";
+			for (const auto& t : args) {
+				t->print(os);
+				os << " ";
+			}
+			os << ")";
+			os << " -> ";
+			return_type->print(os);
+		}
+		virtual shared_ptr<type_id> resolve(typing_context* cx) {
+			vector<shared_ptr<type_id>> ra;
+			for (const auto& t : args) ra.push_back(t->resolve(cx));
+			return make_shared<function_type>(ra, return_type->resolve(cx));
+		}
+	};
 	struct bool_type : public type_id {
 		virtual llvm::Type* llvm_type(llvm::LLVMContext& c) const override {
 			return llvm::Type::getInt1Ty(c);

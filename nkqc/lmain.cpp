@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
 		cout << "\textra: " << e.what() << endl;
 		return 1;
 	}
-	getchar();
+	//getchar();
 
 	llvm::InitializeAllTargetInfos();
 	llvm::InitializeAllTargets();

@@ -155,10 +155,12 @@ namespace nkqc {
 						}
 						F->getBasicBlockList().push_back(merge_bb);
 						irb.SetInsertPoint(merge_bb);
-						auto phi = irb.CreatePHI(arg_t[0]->llvm_type(irb.getContext()), 2);
-						phi->addIncoming(true_gen.s.top(), true_bb);
-						phi->addIncoming(false_gen.s.top(), false_bb);
-						s.push(phi);
+						if (dynamic_pointer_cast<unit_type>(arg_t[0]) != nullptr) {
+							auto phi = irb.CreatePHI(arg_t[0]->llvm_type(irb.getContext()), 2);
+							phi->addIncoming(true_gen.s.top(), true_bb);
+							phi->addIncoming(false_gen.s.top(), false_bb);
+							s.push(phi);
+						}
 						return;
 					}
 				}
