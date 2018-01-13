@@ -107,6 +107,7 @@ namespace nkqc {
 		void code_generator::expr_generator::visit(const nkqc::ast::keyword_msgsnd &x) {
 			auto glob = dynamic_pointer_cast<nkqc::ast::symbol_expr>(x.rcv);
 			auto tx = dynamic_pointer_cast<nkqc::parser::type_expr>(x.rcv);
+			auto block_rcv = dynamic_pointer_cast<nkqc::ast::block_expr>(x.rcv);
 			vector<shared_ptr<type_id>> arg_t;
 			for (const auto& arg : x.args)
 				arg_t.push_back(gen->type_of(arg, cx));
@@ -116,6 +117,49 @@ namespace nkqc {
 			else if (tx != nullptr) {
 				s.push(nullptr);
 				rcv_t = tx->type->resolve(gen);
+			}
+			else if (block_rcv != nullptr) {
+				if (x.msgname == "whileTrue:") {
+					if (arg_t.size() != 1) throw no_such_function_error("while loop must only have body", x.msgname, nullptr, arg_t);
+					auto cond_t = gen->type_of(block_rcv->body, cx);
+					if (dynamic_pointer_cast<bool_type>(cond_t) == nullptr)
+						throw no_such_function_error("while condition must be of bool type", x.msgname, cond_t, arg_t);
+					auto F = irb.GetInsertBlock()->getParent();
+					//		before-loop-code
+					//loop:
+					//		loop-check, branch to after-loop if done
+					//		loop-body
+					//		branch to loop
+					//after-loop:
+					//		after-loop-code
+					auto loop_chk_bb = llvm::BasicBlock::Create(irb.getContext(), "loopchk", F);
+					irb.CreateBr(loop_chk_bb);
+					auto loop_bb = llvm::BasicBlock::Create(irb.getContext(), "loop");
+					auto loopend_bb = llvm::BasicBlock::Create(irb.getContext(), "loopend");
+					auto body_blk = dynamic_pointer_cast<ast::block_expr>(x.args[0]);
+					if (body_blk == nullptr) throw no_such_function_error("while loop body must be block", x.msgname, nullptr, arg_t);
+
+					expr_generator loop_chk_gen(gen, loop_chk_bb, cx);
+					cx->push_scope();
+					block_rcv->body->visit(&loop_chk_gen);
+					loop_chk_gen.irb.CreateCondBr(loop_chk_gen.s.top(), loop_bb, loopend_bb);
+					loop_chk_gen.s.pop();
+					cx->pop_scope();
+
+					expr_generator loop_gen(gen, loop_bb, cx);
+					cx->push_scope();
+					body_blk->body->visit(&loop_gen);
+					loop_gen.irb.CreateBr(loop_chk_bb);
+					cx->pop_scope();
+					F->getBasicBlockList().push_back(loop_bb);
+
+					F->getBasicBlockList().push_back(loopend_bb);
+					irb.SetInsertPoint(loopend_bb);
+					return;
+				}
+				else {
+					throw no_such_function_error("raw block receiver", x.msgname, nullptr, arg_t);
+				}
 			}
 			else {
 				rcv_t = gen->type_of(x.rcv, cx);

@@ -10,6 +10,10 @@ namespace nkqc {
 			functions["/"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::SDiv));
 			functions["=="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_EQ, false));
 			functions["!="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_NE, false));
+			functions["<"].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SLT, false));
+			functions[">"].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SGT, false));
+			functions["<="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SLE, false));
+			functions[">="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SGE, false));
 			functions["~"].push_back(make_shared<cast_op>());
 		}
 

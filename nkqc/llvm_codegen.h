@@ -75,7 +75,7 @@ namespace nkqc {
 				void insert_or_assign(const string& name, shared_ptr<type_id> type, llvm::Value* value = nullptr) {
 					auto place = find(name);
 					if (place != end()) {
-						place->second = { value,type };
+						place->second = { value == nullptr ? place->second.first : value,type };
 					}
 					else {
 						scopes.front()[name] = { value,type };

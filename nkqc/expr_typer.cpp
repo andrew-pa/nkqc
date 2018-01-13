@@ -81,12 +81,17 @@ namespace nkqc {
 		void code_generator::expr_typer::visit(const nkqc::ast::keyword_msgsnd &x) {
 			auto glob = dynamic_pointer_cast<nkqc::ast::symbol_expr>(x.rcv);
 			auto tx = dynamic_pointer_cast<nkqc::parser::type_expr>(x.rcv);
+			auto block_rcv = dynamic_pointer_cast<nkqc::ast::block_expr>(x.rcv);
 			shared_ptr<type_id> rcv_t;
 			if (glob != nullptr && glob->v == "G") {
 				rcv_t = nullptr;
 			}
 			else if (tx != nullptr) {
 				rcv_t = tx->type->resolve(gen);
+			}
+			else if (block_rcv != nullptr) {
+				s.push(make_shared<unit_type>());
+				return;
 			}
 			else {
 				x.rcv->visit(this);
