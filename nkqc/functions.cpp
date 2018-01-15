@@ -184,7 +184,10 @@ namespace nkqc {
 			llvm::outs() << "\n--\n";
 			llvm::outs().flush();
 
-			aargs.push_back(rcv);
+			if (dynamic_pointer_cast<ptr_type>(rcv_t) != nullptr)
+				aargs.push_back(g->irb.CreateLoad(rcv));
+			else
+				aargs.push_back(rcv);
 			aargs.insert(aargs.end(), args.begin(), args.end());
 			g->s.push(g->irb.CreateCall(f, aargs));
 		}

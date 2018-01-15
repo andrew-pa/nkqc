@@ -83,11 +83,12 @@ fn start [
 	#G putChar: (10).
 	str free.
 
-	"c := {Counter} alloc.
+	c := {Counter} alloc.
+	c at: 0 put: ({Counter} new).
 	c incr. c incr.
-	#G putChar: (48 + ({i32} ~ c count)).
+	#G putChar: (65 + ({i32} ~ c count)).
 	#G putChar: (10).
-	c free."
+	c free.
 
 	^ 0
 ]
