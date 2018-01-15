@@ -216,5 +216,88 @@ namespace nkqc {
 			return v;
 		}
 		// -------------------------------------------------
+
+		// -----pointer index-------------------------------
+		void code_generator::pointer_index_op::apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) {
+			g->s.push(g->irb.CreateLoad(g->irb.CreateGEP(rcv, args[0])));
+		}
+		bool code_generator::pointer_index_op::can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			return dynamic_pointer_cast<ptr_type>(rcv) != nullptr && args.size() == 1 && dynamic_pointer_cast<integer_type>(args[0]) != nullptr;
+		}
+		shared_ptr<type_id> code_generator::pointer_index_op::return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
+			return dynamic_pointer_cast<ptr_type>(rcv)->inner;
+		}
+		// -------------------------------------------------
+
+		// -----pointer index store-------------------------
+		void code_generator::pointer_index_store_op::apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) {
+			g->s.push(g->irb.CreateStore(args[1], g->irb.CreateGEP(rcv, args[0])));
+		}
+		bool code_generator::pointer_index_store_op::can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			auto p = dynamic_pointer_cast<ptr_type>(rcv);
+			return p != nullptr &&
+				args.size() == 2 && dynamic_pointer_cast<integer_type>(args[0]) != nullptr &&
+				p->inner->equals(args[1]);
+		}
+		shared_ptr<type_id> code_generator::pointer_index_store_op::return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
+			return make_shared<unit_type>();
+		}
+		// -------------------------------------------------
+
+		// -----alloc---------------------------------------
+		void code_generator::alloc_fn::apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) {
+			if (rcv != nullptr) throw internal_codegen_error("tried to call alloc with a non-null reciever");
+			auto t = rcv_t->llvm_type(g->irb.getContext());
+			auto it = llvm::Type::getInt32Ty(g->irb.getContext());
+			g->s.push(llvm::CallInst::CreateMalloc(g->irb.GetInsertBlock(),
+				it, t, llvm::ConstantExpr::getTruncOrBitCast(llvm::ConstantExpr::getSizeOf(t), it), nullptr, nullptr, ""));
+			g->irb.GetInsertBlock()->getInstList().push_back(llvm::cast<llvm::Instruction>(g->s.top()));
+		}
+		bool code_generator::alloc_fn::can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			return args.size() == 0;
+		}
+		shared_ptr<type_id> code_generator::alloc_fn::return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
+			return make_shared<ptr_type>(rcv);
+		}
+		// -------------------------------------------------
+
+		// -----alloc array---------------------------------
+		void code_generator::alloc_array_fn::apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) {
+			if (rcv != nullptr) throw internal_codegen_error("tried to call alloc with a non-null reciever");
+			auto t = rcv_t->llvm_type(g->irb.getContext());
+			auto it = (llvm::Type*)llvm::Type::getInt32Ty(g->irb.getContext());
+			it->print(llvm::outs());
+			llvm::outs() << "---";
+			args[0]->getType()->print(llvm::outs());
+			llvm::outs() << "\n";
+			llvm::outs().flush();
+			g->s.push(llvm::CallInst::CreateMalloc(g->irb.GetInsertBlock(),
+				it, t, (llvm::Value*)llvm::ConstantExpr::getTruncOrBitCast(llvm::ConstantExpr::getSizeOf(t), it), args[0], nullptr, ""));
+			g->irb.GetInsertBlock()->getInstList().push_back(llvm::cast<llvm::Instruction>(g->s.top()));
+		}
+		bool code_generator::alloc_array_fn::can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			return args.size() == 1 && dynamic_pointer_cast<integer_type>(args[0]) != nullptr;
+		}
+		shared_ptr<type_id> code_generator::alloc_array_fn::return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
+			return make_shared<ptr_type>(rcv);
+		}
+		// -------------------------------------------------
+
+		// -----free----------------------------------------
+		void code_generator::free_fn::apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) {
+			g->irb.GetInsertBlock()->getInstList().push_back(llvm::CallInst::CreateFree(g->irb.CreateLoad(rcv), g->irb.GetInsertBlock()));
+		}
+		bool code_generator::free_fn::can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			return dynamic_pointer_cast<ptr_type>(rcv) != nullptr && args.size() == 0;
+		}
+		shared_ptr<type_id> code_generator::free_fn::return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
+			if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
+			return make_shared<unit_type>();
+		}
+		// -------------------------------------------------
 	}
 }

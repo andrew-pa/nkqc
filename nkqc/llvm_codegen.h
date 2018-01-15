@@ -36,6 +36,11 @@ namespace nkqc {
 			no_such_function_error(const string& m, const string& sel, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& arg)
 				: runtime_error(m), selector(sel), reciever(rcv), arguments(arg) {}
 		};
+		struct type_mismatch_error : public runtime_error {
+			shared_ptr<type_id> a, b;
+			type_mismatch_error(const string& m, shared_ptr<type_id> a, shared_ptr<type_id> b)
+				: runtime_error(m), a(a), b(b) {}
+		};
 
 		struct code_generator : public typing_context {
 			shared_ptr<llvm::Module> mod;
@@ -149,11 +154,39 @@ namespace nkqc {
 
 			struct cast_op : public function {
 				cast_op() {}
-
 				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override;
-
 				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override;
+				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args);
+			};
 
+			struct pointer_index_op : public function {
+				pointer_index_op() {}
+				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override;
+				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override;
+				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args);
+			};
+			struct pointer_index_store_op : public function {
+				pointer_index_store_op() {}
+				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override;
+				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override;
+				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args);
+			};
+			struct alloc_fn : public function {
+				alloc_fn() {}
+				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override;
+				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override;
+				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args);
+			};
+			struct alloc_array_fn : public function {
+				alloc_array_fn() {}
+				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override;
+				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override;
+				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args);
+			};
+			struct free_fn : public function {
+				free_fn() {}
+				void apply(expr_generator* g, llvm::Value* rcv, const vector<llvm::Value*>& args, shared_ptr<type_id> rcv_t, const vector<shared_ptr<type_id>>& args_t) override;
+				bool can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) override;
 				shared_ptr<type_id> return_type(code_generator* e, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args);
 			};
 

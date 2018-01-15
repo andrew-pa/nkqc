@@ -226,10 +226,11 @@ namespace nkqc {
 		}
 		void code_generator::expr_generator::visit(const nkqc::ast::assignment_expr &x) {
 			x.val->visit(this);
+			auto vt = gen->type_of(x.val, cx);
 			auto v = cx->find(x.name);
 			if (v == cx->end() || v->second.first == nullptr) {
 				allocate();
-				cx->insert_or_assign(x.name, gen->type_of(x.val, cx), s.top());
+				cx->insert_or_assign(x.name, vt, s.top());
 			}
 			else {
 				llvm::outs() << "assignment: ";
@@ -238,6 +239,8 @@ namespace nkqc {
 				s.top()->getType()->print(llvm::outs());
 				llvm::outs() << "\n";
 				llvm::outs().flush();
+				if (!v->second.second->equals(vt))
+					throw type_mismatch_error("assignment", v->second.second, vt);
 				irb.CreateStore(s.top(), v->second.first);
 			}
 		}

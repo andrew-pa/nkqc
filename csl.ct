@@ -5,7 +5,7 @@ fn putChar: {c i32} #(#putchar {()})
 
 "struct Range | {start u32"
 
-"struct Counter | {x u32} |
+struct Counter | {x u32} |
 
 fn (Counter) new [
 	^ {Counter} x: ({u32} ~ 0)
@@ -25,7 +25,7 @@ fn {Counter} count [
 	^ x
 ]
 
-fn putAs: {n i32} -> i32 [
+"fn putAs: {n i32} -> i32 [
 	^ (n != 0) ifTrue: [
 		#G putChar: (65).
 		#G putAs: (n - 1). 0
@@ -47,6 +47,15 @@ fn repeat: {aBlock (i32) -> ()} times: {n i32} -> () [
 	aBlock value: (52)
 ]"
 
+fn printString: {s *u8} [
+	i := (0).
+	[ (s at: i) != ({u8} ~ 0) ] whileTrue: [
+		#G putChar: {i32} ~ (s at: i).
+		i := (i + 1)
+	].
+	^ i
+] 
+
 fn start [
 	"#G print: ({*u8} ~ 'Hello, World!').
 	#G putAs: (0).
@@ -56,8 +65,29 @@ fn start [
 	#G putAs: (5).
 	#G putChar: (10)."
 	"#G repeat: [ :x | #G putChar: (x + 65) ] times: (10)."
-	x := (0).
+	"x := (0).
 	[ x < 26 ] whileTrue: [ #G putChar: (x + 65). x := x + 1 ].
+	#G putChar: (10)."
+
+	buf := {i32} alloc.
+	buf at: 0 put: (65).
+	#G putChar: (buf at: 0).
 	#G putChar: (10).
+	buf free.
+
+	str := {u8} allocArrayOf: (3).
+	str at: 0 put: ({u8} ~ 33).
+	str at: 1 put: ({u8} ~ 35).
+	str at: 2 put: ({u8} ~ 0).
+	#G printString: str.
+	#G putChar: (10).
+	str free.
+
+	"c := {Counter} alloc.
+	c incr. c incr.
+	#G putChar: (48 + ({i32} ~ c count)).
+	#G putChar: (10).
+	c free."
+
 	^ 0
 ]
