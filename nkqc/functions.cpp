@@ -184,7 +184,7 @@ namespace nkqc {
 			llvm::outs() << "\n--\n";
 			llvm::outs().flush();
 
-			if (dynamic_pointer_cast<ptr_type>(rcv_t) != nullptr)
+			if (rcv->getType()->isPointerTy() && rcv->getType()->getPointerElementType()->isPointerTy()) //dynamic_pointer_cast<ptr_type>(rcv_t) != nullptr)
 				aargs.push_back(g->irb.CreateLoad(rcv));
 			else
 				aargs.push_back(rcv);
@@ -257,6 +257,13 @@ namespace nkqc {
 			g->s.push(llvm::CallInst::CreateMalloc(g->irb.GetInsertBlock(),
 				it, t, llvm::ConstantExpr::getTruncOrBitCast(llvm::ConstantExpr::getSizeOf(t), it), nullptr, nullptr, ""));
 			g->irb.GetInsertBlock()->getInstList().push_back(llvm::cast<llvm::Instruction>(g->s.top()));
+			auto f = g->gen->lookup_function("new", rcv_t, {});
+			if (f != nullptr) {
+				auto v = g->s.top();
+				f->apply(g, nullptr, {}, rcv_t, {});
+				g->irb.CreateStore(g->s.top(), v);
+				g->s.pop();
+			}
 		}
 		bool code_generator::alloc_fn::can_apply(shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
 			return args.size() == 0;
