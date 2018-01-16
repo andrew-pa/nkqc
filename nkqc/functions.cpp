@@ -108,14 +108,19 @@ namespace nkqc {
 
 		shared_ptr<type_id> code_generator::llvm_function::return_type(code_generator* gen, shared_ptr<type_id> rcv, const vector<shared_ptr<type_id>>& args) {
 			if (!can_apply(rcv, args)) throw internal_codegen_error("tried to find return type for invalid function application");
-			expr_context fncx;
-			expr_typer ty{ gen, &fncx };
-			for (int i = 0; i < decl.args.size(); ++i) {
-				ty.cx->insert_or_assign(decl.args[i].first, args[i]);
+			if (decl.return_type) {
+				return decl.return_type->resolve(gen);
 			}
-			ty.visit(decl.body);
-			auto v = ty.s.top(); ty.s.pop();
-			return v;
+			else {
+				expr_context fncx;
+				expr_typer ty{ gen, &fncx };
+				for (int i = 0; i < decl.args.size(); ++i) {
+					ty.cx->insert_or_assign(decl.args[i].first, args[i]);
+				}
+				ty.visit(decl.body);
+				auto v = ty.s.top(); ty.s.pop();
+				return v;
+			}
 		}
 		// -------------------------------------------------
 
