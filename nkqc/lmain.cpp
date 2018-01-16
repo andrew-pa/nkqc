@@ -88,20 +88,16 @@ struct result {
 int main(int argc, char* argv[]) {
 	vector<string> args; for (int i = 1; i < argc; i++) args.push_back(argv[i]);
 
-	//putc(65, __acrt_iob_func(1));
-	//fwrite("hello, world!", sizeof(char), sizeof(char) * 14, stdout);
-
-	string s;
-	ifstream input_file(args[0]);
-	while (input_file) {
-		string line; getline(input_file, line);
-		s += line + "\n";
-	}
-	//s = nkqc::parser::preprocess(s);
-
 	llvm::LLVMContext ctx;
 	auto mod = make_shared<llvm::Module>(args[0], ctx);
 	try {
+
+		string s;
+		ifstream input_file(args[0]);
+		while (input_file) {
+			string line; getline(input_file, line);
+			s += line + "\n";
+		}
 		auto p = nkqc::parser::file_parser{};
 		auto cg = nkqc::codegen::code_generator{ mod };
 
@@ -119,6 +115,13 @@ int main(int argc, char* argv[]) {
 		return 1;
 	} catch (const nkqc::codegen::internal_codegen_error& e) {
 		cout << "internal error: " << e.what() << endl;
+		return 1;
+	} catch (const nkqc::codegen::type_mismatch_error& e) {
+		cout << "error: type mismatch types: ";
+		e.a->print(cout);
+		cout << ", ";
+		e.b->print(cout);
+		cout << "; " << e.what() << endl;
 		return 1;
 	} catch (const nkqc::codegen::no_such_function_error& e) {
 		cout << "error: no such function " << e.selector << endl;

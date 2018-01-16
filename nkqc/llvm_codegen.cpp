@@ -8,9 +8,19 @@ namespace nkqc {
 			functions["*"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Mul));
 			functions["-"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::Sub));
 			functions["/"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::SDiv));
+			functions["%"].push_back(make_shared<binary_llvm_op>(llvm::BinaryOperator::BinaryOps::SRem));
 			functions["=="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_EQ, false));
 			functions["!="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_NE, false));
+			functions["<"].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SLT, false));
+			functions[">"].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SGT, false));
+			functions["<="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SLE, false));
+			functions[">="].push_back(make_shared<numeric_comp_op>(llvm::CmpInst::Predicate::ICMP_SGE, false));
 			functions["~"].push_back(make_shared<cast_op>());
+			functions["at:"].push_back(make_shared<pointer_index_op>());
+			functions["at:put:"].push_back(make_shared<pointer_index_store_op>());
+			functions["alloc"].push_back(make_shared<alloc_fn>());
+			functions["allocArrayOf:"].push_back(make_shared<alloc_array_fn>());
+			functions["free"].push_back(make_shared<free_fn>());
 		}
 
 		llvm::Function* code_generator::define_function(nkqc::parser::fn_decl fn) {
